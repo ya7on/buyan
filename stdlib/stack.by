@@ -1,0 +1,22 @@
+module std.stack;
+
+// Drop the top element from the stack.
+#[builtin]
+def drop<T>(T --) end
+
+// Duplicate the top element on the stack.
+#[builtin]
+def dup<T: Copy>(T -- T, T) end
+
+// Swap the top two elements on the stack.
+#[builtin]
+def swap<A, B>(A, B -- B, A) end
+
+// Call a function with the given arguments.
+#[builtin]
+def call<...S, ...R>(
+    ...S,
+    |...S -- ...R| // body
+    --
+    ...R
+) end

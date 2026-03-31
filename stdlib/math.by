@@ -1,0 +1,5 @@
+module std.math;
+
+#[builtin]
+def add<T>(T, T -- T) end
+

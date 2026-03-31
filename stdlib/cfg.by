@@ -1,0 +1,13 @@
+module std.prelude;
+
+#[builtin]
+def if<...S, ...R>(
+    ...S,
+    bool, // condition
+    |...S -- ...R|, // then
+    |...S -- ...R| // else
+    --
+    ...R
+)
+end
+

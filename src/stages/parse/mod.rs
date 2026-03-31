@@ -1,0 +1,9 @@
+pub mod ast;
+pub mod dump;
+pub mod lexer;
+pub mod parse_instruction;
+pub mod parse_module;
+pub mod parse_stack_effect;
+pub mod parse_word;
+pub mod parser;
+pub mod stage;
