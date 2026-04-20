@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{common::Spanned, stages::semantic::context::SymbolId};
 
 #[derive(Debug, Clone)]
@@ -33,6 +35,7 @@ pub struct HIRWord {
     pub body: Vec<Spanned<HIRInstruction>>,
     pub attributes: Vec<HIRWordAttribute>,
     pub entrypoint: bool,
+    pub substitutions: HashMap<SymbolId, SymbolId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{
+use buyan::{
     error::CompileError,
     stages::parse::{ast::ASTProgram, lexer::TokenKind},
 };
+use logos::Logos;
 
 #[derive(Default)]
 pub struct TestExecutor {
@@ -21,13 +22,29 @@ impl TestExecutor {
         }
     }
 
-    pub fn lex(&mut self) {
+    pub fn lex(mut self) -> Self {
         assert!(self.lex_result.is_none());
-
-        todo!()
+        let mut result = Vec::new();
+        let mut errors = Vec::new();
+        for token in TokenKind::lexer(&self.input) {
+            match token {
+                Ok(token) => {
+                    result.push(token);
+                }
+                Err(err) => {
+                    errors.push(err);
+                }
+            }
+        }
+        if !errors.is_empty() {
+            self.lex_result = Some(Err(errors));
+            return self;
+        }
+        self.lex_result = Some(Ok(result));
+        self
     }
 
-    pub fn lex_ok(&mut self) {
+    pub fn lex_ok(self) -> Self {
         assert!(self.lex_result.is_some());
         if let Some(result) = self.lex_result.as_ref() {
             assert!(
@@ -36,19 +53,26 @@ impl TestExecutor {
                 result.as_ref().unwrap_err()
             );
         }
+        self
     }
 
-    pub fn parse(&mut self) {
+    pub fn lex_match(self, expected: Result<Vec<TokenKind>, Vec<CompileError>>) -> Self {
+        assert!(self.lex_result.is_some());
+        assert_eq!(self.lex_result, Some(expected));
+        self
+    }
+
+    pub fn parse(mut self) -> Self {
         assert!(self.parse_result.is_none());
 
         if self.lex_result.is_none() {
-            self.lex();
+            self = self.lex();
         }
 
-        todo!()
+        self
     }
 
-    pub fn parse_ok(&mut self) {
+    pub fn parse_ok(self) -> Self {
         assert!(self.parse_result.is_some());
         if let Some(result) = self.parse_result.as_ref() {
             assert!(
@@ -57,5 +81,6 @@ impl TestExecutor {
                 result.as_ref().unwrap_err()
             );
         }
+        self
     }
 }

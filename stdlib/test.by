@@ -3,5 +3,5 @@ import std.math;
 module app;
 
 def main(-- u8)
-    2u8 2u8 std.math.add
+    2u8 2u8 std.math.add 2u8 std.math.add
 end

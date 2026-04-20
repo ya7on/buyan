@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     common::{CompileContext, Spanned},
     error::CompileError,
@@ -147,6 +149,7 @@ impl CollectHIRStage {
             body,
             attributes,
             entrypoint: is_root_module && word.name.value == "main",
+            substitutions: HashMap::new(),
         })
     }
 
