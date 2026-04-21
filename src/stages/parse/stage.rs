@@ -43,7 +43,6 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
         while let Some(module) = queue.pop() {
             let lexer_result = match lex(LexInput {
                 content: module.content,
-                path: module.absolute.clone(),
             }) {
                 Ok(tokens) => tokens,
                 Err(err) => {
@@ -53,7 +52,6 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
             };
             let parse_result = match parse(ParserInput {
                 tokens: lexer_result.tokens,
-                path: module.absolute,
             }) {
                 Ok(ast) => ast,
                 Err(err) => {

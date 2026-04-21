@@ -1,12 +1,9 @@
-use std::path::PathBuf;
-
 use chumsky::span::SimpleSpan;
 use logos::Logos;
 
 use crate::{common::Span, error::CompileError};
 
 pub struct LexInput {
-    pub path: PathBuf,
     pub content: String,
 }
 

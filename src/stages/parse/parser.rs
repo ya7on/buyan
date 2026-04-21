@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use chumsky::{
     Parser,
     error::RichPattern,
@@ -14,7 +12,6 @@ use crate::{
 
 pub struct ParserInput {
     pub tokens: Vec<(TokenKind, SimpleSpan)>,
-    pub path: PathBuf,
 }
 
 pub struct ParseResult {
