@@ -1,43 +1,33 @@
 #![allow(dead_code)]
-use std::collections::HashMap;
 
-use buyan::stages::parse::parser::{ParserInput, parse};
+use buyan::error::CompileError;
 
 use crate::common::executor::TestExecutor;
 
 impl TestExecutor {
-    pub fn parse(mut self) -> Self {
-        assert!(self.lex_result.is_some());
-        assert!(self.parse_result.is_none());
-        let mut result = HashMap::new();
-        for (path, lex_result) in self.lex_result.as_ref().unwrap().iter() {
-            let parse_result = parse(ParserInput {
-                tokens: lex_result.clone().unwrap(),
-            });
-            result.insert(path.clone(), parse_result.map(|r| r.ast));
-        }
-        self.parse_result = Some(result);
-        self
-    }
-
     pub fn parse_ok(&self) -> bool {
-        self.parse_result
-            .as_ref()
-            .unwrap()
-            .iter()
-            .all(|(_, r)| r.is_ok())
+        self.ast.as_ref().map(|ast| ast.is_ok()).unwrap_or(false)
     }
 
     pub fn assert_parse_ok(self) -> Self {
-        assert!(self.parse_result.is_some());
-        for (path, result) in self.parse_result.as_ref().unwrap().iter() {
-            assert!(
-                result.is_ok(),
-                "parse failed for path {} {:?}",
-                path,
-                result
-            );
-        }
+        assert!(self.parse_ok(), "parse stage failed {:?}", self.ast);
+        self
+    }
+
+    pub fn assert_parse_err(self, pred: impl Fn(&CompileError) -> bool) -> Self {
+        assert!(self.ast.is_some());
+        assert!(self.ast.as_ref().unwrap().is_err());
+        assert!(
+            self.ast
+                .as_ref()
+                .unwrap()
+                .as_ref()
+                .unwrap_err()
+                .iter()
+                .any(pred),
+            "error in ast not found {:?}",
+            self.ast
+        );
         self
     }
 }

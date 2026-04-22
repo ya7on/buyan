@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub struct ParseStage<F: FileSystem> {
-    file_loader: F,
+    pub file_loader: F,
 }
 
 impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
@@ -87,7 +87,10 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                     continue;
                 }
 
-                let path = Into::<PathBuf>::into(import.value.clone());
+                let path = Into::<PathBuf>::into(format!(
+                    "{}.by",
+                    import.value.to_string().replace(".", "/")
+                ));
                 if !visited.insert(path.clone()) {
                     continue;
                 }

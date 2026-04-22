@@ -1,26 +1,26 @@
 use crate::{common::Spanned, stages::lower::context::WordId};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BasicBlockId(pub usize);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IRProgram {
     pub words: Vec<Spanned<IRWord>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IRWord {
     pub entrypoint: bool,
     pub blocks: Vec<IRBasicBlock>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IRBasicBlock {
     pub instructions: Vec<Spanned<IRInstruction>>,
     pub terminator: Spanned<IRTerminator>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IRTerminator {
     Branch {
         branch: BasicBlockId,
@@ -32,13 +32,13 @@ pub enum IRTerminator {
     End,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IRConstant {
     U8(u8),
     String(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IRInstruction {
     PushConstant {
         value: IRConstant,

@@ -13,11 +13,10 @@ impl<O, C: Default> PipelineBuilder<O, C> {
         }
     }
 
-    pub fn stage<T>(mut self) -> PipelineBuilder<T::Output, C>
+    pub fn stage_initialized<T>(mut self, mut stage: T) -> PipelineBuilder<T::Output, C>
     where
         T: Stage<C, Input = O>,
     {
-        let mut stage = T::default();
         let prev = match self.prev {
             Ok(prev) => prev,
             Err(errors) => {
@@ -38,6 +37,18 @@ impl<O, C: Default> PipelineBuilder<O, C> {
                 context: self.context,
             },
         }
+    }
+
+    pub fn stage<T>(self) -> PipelineBuilder<T::Output, C>
+    where
+        T: Stage<C, Input = O>,
+    {
+        let stage = T::default();
+        self.stage_initialized(stage)
+    }
+
+    pub fn dump(&self) -> Result<&O, &Vec<CompileError>> {
+        self.prev.as_ref()
     }
 
     pub fn context(&self) -> &C {
