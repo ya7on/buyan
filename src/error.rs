@@ -42,8 +42,11 @@ pub enum CompileError {
         span: Span,
     },
     InvalidStack {
+        label: String,
         span: Span,
-    }, // TODO
+        expected_stack: Vec<String>,
+        actual_stack: Vec<String>,
+    },
 }
 
 impl Default for CompileError {

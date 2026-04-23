@@ -145,46 +145,115 @@ fn test_string() {
     .assert_hir_ok();
 }
 
-// #[test]
-// fn test_lambda() {
-//     TestExecutor::input((
-//         "app.by",
-//         r#"
-//         import std.stack;
-//         module app;
-//         def main( -- | -- u8|) | -- u8 | { 67u8 } end
-//         "#,
-//     ))
-//     .check()
-//     .assert_parse_ok()
-//     .assert_hir_ok();
-// }
+#[test]
+fn test_invalid_stack_out_type() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        def main( -- u8) "Hello, World!" end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}
 
-// #[test]
-// fn test_call() {
-//     TestExecutor::input((
-//         "app.by",
-//         r#"
-//         import std.stack;
-//         module app;
-//         def main( -- u8) | -- u8| { 67u8 } std.stack.call end
-//         "#,
-//     ))
-//     .check()
-//     .assert_parse_ok()
-//     .assert_hir_ok();
-// }
+#[test]
+fn test_lambda() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import std.stack;
+        module app;
+        def foo( | u8 -- | -- ) std.stack.drop end
+        def main( -- ) | u8 -- | { 67u8 } foo end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
 
-// #[test]
-// fn test_empty_body_typecheck() {
-//     TestExecutor::input((
-//         "app.by",
-//         r#"
-//         module app;
-//         def main( -- ) 2u8 end
-//         "#,
-//     ))
-//     .check()
-//     .assert_parse_ok()
-//     .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-// }
+#[test]
+fn test_invalid_lambda() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import std.stack;
+        module app;
+        def foo( | string -- | -- ) std.stack.drop end
+        def main( -- ) | u8 -- | { 67u8 } foo end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}
+
+#[test]
+fn test_empty_body_typecheck() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        def main( -- ) 2u8 end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}
+
+#[test]
+fn test_call() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import std.stack;
+        module app;
+        def main( -- u8) | -- u8| { 67u8 } std.stack.call end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
+
+#[test]
+fn test_lambda_check_exact_stack_in() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import std.stack;
+        module app;
+        def takes_lambda(|string -- u8| --) std.stack.drop end
+        def test( -- )
+            |string, string -- u8| { std.stack.drop std.stack.drop 67u8 }
+            takes_lambda
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}
+
+#[test]
+fn test_lambda_check_exact_stack_out() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import std.stack;
+        module app;
+        def takes_lambda(|string -- u8| --) std.stack.drop end
+        def test( -- )
+            |string -- u8, u8| { std.stack.drop 67u8 69u8 }
+            takes_lambda
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}

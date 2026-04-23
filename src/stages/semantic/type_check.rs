@@ -32,9 +32,10 @@ impl TypeCheckStage {
                         span: instruction.span,
                     });
                 };
-                stack_analysis.apply(
+                stack_analysis.apply_call(
                     stack_in.iter().map(|item| &item.value).cloned().collect(),
                     stack_out.iter().map(|item| &item.value).cloned().collect(),
+                    instruction.span,
                 )?;
             }
             HIRInstruction::Literal(literal) => match literal {
@@ -95,13 +96,14 @@ impl TypeCheckStage {
             TypeCheckStage::type_check_instruction(hir_ctx, instruction, &mut stack_analysis)?;
         }
 
-        stack_analysis.check_output(
+        stack_analysis.match_stack(
             word.signature
                 .stack_out
                 .iter()
                 .map(|item| &item.value)
                 .cloned()
                 .collect(),
+            word.signature.name.span, // TODO use stack_out span
         )?;
 
         Ok(())

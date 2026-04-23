@@ -60,6 +60,7 @@ pub enum HIRInstruction {
     Call {
         name: String,
         symbol_id: SymbolId,
+        // substitutions: HashMap<SymbolId, SymbolId>,
     },
     Literal(HIRLiteral),
     Lambda {
