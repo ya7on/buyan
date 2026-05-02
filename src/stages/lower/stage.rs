@@ -69,7 +69,23 @@ impl LowerStage {
         for instruction in body {
             match &instruction.value {
                 HIRInstruction::Call { name, symbol_id } => {
-                    match name.as_str() {
+                    let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
+                        errors.push(CompileError::SymbolNotFound {
+                            name: name.clone(),
+                            span: instruction.span,
+                        });
+                        continue;
+                    };
+                    let Some(word_name) = ir_ctx.get_word(word_id).map(|word| word.name.as_str())
+                    else {
+                        errors.push(CompileError::SymbolNotFound {
+                            name: name.clone(),
+                            span: instruction.span,
+                        });
+                        continue;
+                    };
+
+                    match word_name {
                         // Builtin call
                         "std.cfg.if" => {
                             let current_block_id = blocks.len();
@@ -115,6 +131,9 @@ impl LowerStage {
 
                             basicblock = BasicBlockBuilder::default();
                         }
+                        "std.io.print" => {
+                            basicblock.push(Spanned::new(IRInstruction::Print, instruction.span));
+                        }
                         "std.stack.call" => {
                             basicblock
                                 .push(Spanned::new(IRInstruction::CallIndirect, instruction.span));
@@ -131,19 +150,26 @@ impl LowerStage {
                         "std.math.add" => {
                             basicblock.push(Spanned::new(IRInstruction::Add, instruction.span));
                         }
+                        "std.math.sub" => {
+                            basicblock.push(Spanned::new(IRInstruction::Sub, instruction.span));
+                        }
+                        "std.math.mul" => {
+                            basicblock.push(Spanned::new(IRInstruction::Mul, instruction.span));
+                        }
+                        "std.math.div" => {
+                            basicblock.push(Spanned::new(IRInstruction::Div, instruction.span));
+                        }
+                        "std.math.eq" => {
+                            basicblock.push(Spanned::new(IRInstruction::Eq, instruction.span));
+                        }
                         "std.math.gt" => {
                             basicblock.push(Spanned::new(IRInstruction::Gt, instruction.span));
                         }
+                        "std.math.lt" => {
+                            basicblock.push(Spanned::new(IRInstruction::Lt, instruction.span));
+                        }
                         // Real word call
                         _ => {
-                            let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied()
-                            else {
-                                errors.push(CompileError::SymbolNotFound {
-                                    name: name.clone(),
-                                    span: instruction.span,
-                                });
-                                continue;
-                            };
                             basicblock.push(Spanned::new(
                                 IRInstruction::CallDirect { word_id },
                                 instruction.span,

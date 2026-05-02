@@ -1,0 +1,11 @@
+import std.io;
+
+module hello_world;
+
+def main( -- )
+    // Add string to the stack.
+    "Hello, world!"
+
+    // Print the top of the stack.
+    std.io.println
+end

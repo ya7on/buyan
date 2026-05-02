@@ -84,6 +84,13 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                                 name: "std.cfg".to_string(),
                             });
                         }
+                        "std.io" => {
+                            queue.push(Module {
+                                absolute: PathBuf::from("stdlib/io.by"),
+                                content: include_str!("../../../stdlib/io.by").to_string(),
+                                name: "std.io".to_string(),
+                            });
+                        }
                         _ => {
                             errors.push(CompileError::ImportError {
                                 path: import.to_string(),

@@ -1,0 +1,11 @@
+
+module std.io;
+
+#[builtin]
+def print<T>(T -- ) end
+
+def println<T>(T -- )
+    print
+    "\n"
+    print
+end

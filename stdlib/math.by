@@ -1,8 +1,23 @@
 module std.math;
 
 #[builtin]
-def add<T>(T, T -- T) end
+def add<T: Add>(T, T -- T) end
 
 #[builtin]
-def gt<T>(T, T -- bool) end
+def sub<T: Sub>(T, T -- T) end
+
+#[builtin]
+def mul<T: Mul>(T, T -- T) end
+
+#[builtin]
+def div<T: Div>(T, T -- T) end
+
+#[builtin]
+def eq<T: Eq>(T, T -- bool) end
+
+#[builtin]
+def gt<T: Ord>(T, T -- bool) end
+
+#[builtin]
+def lt<T: Ord>(T, T -- bool) end
 

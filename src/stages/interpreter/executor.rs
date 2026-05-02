@@ -62,7 +62,6 @@ impl IRInterpreter {
 
     fn execute_block(&mut self, program: &IRProgram, block: &IRBasicBlock) -> Option<BasicBlockId> {
         for instruction in &block.instructions {
-            println!("{:?}", instruction);
             match &instruction.value {
                 IRInstruction::PushConstant { value } => {
                     self.stack.push(IRValue::from_constant(value));
@@ -103,6 +102,46 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
+                IRInstruction::Sub => {
+                    let rhs = self.stack.pop().expect("stack underflow");
+                    let lhs = self.stack.pop().expect("stack underflow");
+                    match (lhs, rhs) {
+                        (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::U8(lhs - rhs));
+                        }
+                        _ => todo!(),
+                    }
+                }
+                IRInstruction::Mul => {
+                    let rhs = self.stack.pop().expect("stack underflow");
+                    let lhs = self.stack.pop().expect("stack underflow");
+                    match (lhs, rhs) {
+                        (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::U8(lhs * rhs));
+                        }
+                        _ => todo!(),
+                    }
+                }
+                IRInstruction::Div => {
+                    let rhs = self.stack.pop().expect("stack underflow");
+                    let lhs = self.stack.pop().expect("stack underflow");
+                    match (lhs, rhs) {
+                        (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::U8(lhs / rhs));
+                        }
+                        _ => todo!(),
+                    }
+                }
+                IRInstruction::Eq => {
+                    let rhs = self.stack.pop().expect("stack underflow");
+                    let lhs = self.stack.pop().expect("stack underflow");
+                    match (lhs, rhs) {
+                        (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs == rhs));
+                        }
+                        _ => todo!(),
+                    }
+                }
                 IRInstruction::Gt => {
                     let rhs = self.stack.pop().expect("stack underflow");
                     let lhs = self.stack.pop().expect("stack underflow");
@@ -113,8 +152,34 @@ impl IRInterpreter {
                         _ => panic!("gt expects u8 operands"),
                     }
                 }
+                IRInstruction::Lt => {
+                    let rhs = self.stack.pop().expect("stack underflow");
+                    let lhs = self.stack.pop().expect("stack underflow");
+                    match (lhs, rhs) {
+                        (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs < rhs));
+                        }
+                        _ => panic!("lt expects u8 operands"),
+                    }
+                }
+                IRInstruction::Print => {
+                    let value = self.stack.pop().expect("stack underflow");
+                    match value {
+                        IRValue::String(value) => {
+                            print!("{}", value);
+                        }
+                        IRValue::U8(value) => {
+                            print!("{}", value);
+                        }
+                        IRValue::Bool(value) => {
+                            print!("{}", value);
+                        }
+                        _ => {
+                            print!("{:?}", value);
+                        }
+                    }
+                }
             }
-            println!("{:?}", self.stack);
         }
 
         match &block.terminator.value {
@@ -133,11 +198,11 @@ impl IRInterpreter {
                 };
 
                 if condition {
-                    self.stack.push(else_lambda);
-                    Some(*else_branch)
-                } else {
                     self.stack.push(then_lambda);
                     Some(*then_branch)
+                } else {
+                    self.stack.push(else_lambda);
+                    Some(*else_branch)
                 }
             }
         }

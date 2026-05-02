@@ -42,12 +42,12 @@ impl CollectHIRStage {
                 let Some((symbol_id, SymbolKind::Word { .. })) = hir_ctx.lookup_and_get(&full_name)
                 else {
                     return Err(vec![CompileError::SymbolNotFound {
-                        name: call.to_string(),
+                        name: full_name.to_string(),
                         span: instruction.span,
                     }]);
                 };
                 Ok(HIRInstruction::Call {
-                    name: call.to_string(),
+                    name: full_name.to_string(),
                     symbol_id,
                 })
             }

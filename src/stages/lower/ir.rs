@@ -48,5 +48,11 @@ pub enum IRInstruction {
     Dup,
     Swap,
     Add,
+    Sub,
+    Mul,
+    Div,
+    Eq,
     Gt,
+    Lt,
+    Print,
 }

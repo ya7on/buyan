@@ -7,7 +7,7 @@ use buyan::{
     stages::{
         interpreter::executor::IRInterpreter,
         lower::{collect::CollectSymbolsStage, stage::LowerStage},
-        parse::{dump::DumpAst, stage::ParseStage},
+        parse::stage::ParseStage,
         semantic::{
             collect_hir::CollectHIRStage, collect_names::CollectNamesStage,
             type_check::TypeCheckStage,
@@ -34,7 +34,7 @@ fn main() {
 
     let pipeline = PipelineBuilder::new(args.path)
         .stage::<ParseStage<RealFileSystem>>()
-        .stage::<DumpAst>()
+        // .stage::<DumpAst>()
         .stage::<CollectNamesStage>()
         .stage::<CollectHIRStage>()
         .stage::<TypeCheckStage>()
@@ -43,7 +43,7 @@ fn main() {
         .stage::<IRInterpreter>();
     // let context = pipeline.context();
     match pipeline.finish() {
-        Ok(result) => println!("{result:#?}"),
+        Ok(_) => {}
         Err(errors) => print_errors(&errors),
     }
 }
