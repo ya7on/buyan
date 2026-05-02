@@ -1,4 +1,4 @@
-module std.prelude;
+module std.cfg;
 
 #[builtin]
 def if<...S, ...R>(

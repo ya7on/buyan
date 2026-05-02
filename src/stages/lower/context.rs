@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::stages::semantic::context::SymbolId;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WordId(pub usize);
 
 impl WordId {

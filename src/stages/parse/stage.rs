@@ -77,6 +77,13 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                                 name: "std.math".to_string(),
                             });
                         }
+                        "std.cfg" => {
+                            queue.push(Module {
+                                absolute: PathBuf::from("stdlib/cfg.by"),
+                                content: include_str!("../../../stdlib/cfg.by").to_string(),
+                                name: "std.cfg".to_string(),
+                            });
+                        }
                         _ => {
                             errors.push(CompileError::ImportError {
                                 path: import.to_string(),

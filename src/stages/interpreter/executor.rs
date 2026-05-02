@@ -12,6 +12,7 @@ use crate::{
 pub enum IRValue {
     U8(u8),
     String(String),
+    Lambda(WordId),
 }
 
 impl IRValue {
@@ -60,8 +61,18 @@ impl IRInterpreter {
                 IRInstruction::PushConstant { value } => {
                     self.stack.push(IRValue::from_constant(value));
                 }
-                IRInstruction::Call { word_id } => {
+                IRInstruction::PushLambda { word_id } => {
+                    self.stack.push(IRValue::Lambda(*word_id));
+                }
+                IRInstruction::CallDirect { word_id } => {
                     self.execute_word(program, *word_id);
+                }
+                IRInstruction::CallIndirect => {
+                    let lambda = self.stack.pop().expect("stack underflow");
+                    match lambda {
+                        IRValue::Lambda(word_id) => self.execute_word(program, word_id),
+                        _ => panic!("indirect call expects lambda"),
+                    }
                 }
                 IRInstruction::Swap => {
                     let rhs = self.stack.pop().expect("stack underflow");
@@ -86,9 +97,6 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
-                IRInstruction::If { .. } => todo!(),
-                IRInstruction::While { .. } => todo!(),
-                IRInstruction::CallLambda => todo!(),
             }
             println!("{:?}", self.stack);
         }

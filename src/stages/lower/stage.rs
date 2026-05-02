@@ -1,5 +1,5 @@
 use crate::{
-    common::{CompileContext, Spanned},
+    common::{CompileContext, Span, Spanned},
     error::CompileError,
     pipeline::Stage,
     stages::{
@@ -7,7 +7,7 @@ use crate::{
             context::{IRContext, WordId},
             ir::{IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator, IRWord},
         },
-        semantic::hir::{HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRWord},
+        semantic::hir::{HIRInstruction, HIRLiteral, HIRProgram, HIRWord},
     },
 };
 
@@ -33,38 +33,38 @@ impl BasicBlockBuilder {
 pub struct LowerStage;
 
 impl LowerStage {
-    fn lower_module(module: &HIRModule) -> Result<Vec<Spanned<IRWord>>, Vec<CompileError>> {
-        let mut errors = Vec::new();
-        let mut result = Vec::new();
-
-        for word in &module.words {
-            let word = match Self::lower_word(word) {
-                Ok(word) => word,
-                Err(err) => {
-                    errors.extend(err);
-                    continue;
-                }
-            };
-            result.push(word);
-        }
-
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok(result)
+    fn lower_word(
+        ir_ctx: &IRContext,
+        word: &Spanned<HIRWord>,
+        lambda_words: &mut Vec<Spanned<IRWord>>,
+        base_word_count: usize,
+    ) -> Result<Spanned<IRWord>, Vec<CompileError>> {
+        Ok(Spanned::new(
+            Self::lower_ir_word(
+                ir_ctx,
+                &word.body,
+                word.entrypoint,
+                word.span,
+                lambda_words,
+                base_word_count,
+            )?,
+            word.span,
+        ))
     }
 
-    fn lower_word(word: &Spanned<HIRWord>) -> Result<Spanned<IRWord>, Vec<CompileError>> {
-        let errors = Vec::new();
-        let mut result = IRWord {
-            blocks: Vec::new(),
-            entrypoint: word.entrypoint,
-        };
-
+    fn lower_ir_word(
+        ir_ctx: &IRContext,
+        body: &[Spanned<HIRInstruction>],
+        entrypoint: bool,
+        span: Span,
+        lambda_words: &mut Vec<Spanned<IRWord>>,
+        base_word_count: usize,
+    ) -> Result<IRWord, Vec<CompileError>> {
+        let mut errors = Vec::new();
         let mut basicblock = BasicBlockBuilder::default();
-        for instruction in &word.body {
+        for instruction in body {
             match &instruction.value {
-                HIRInstruction::Call { name, .. } => {
+                HIRInstruction::Call { name, symbol_id } => {
                     match name.as_str() {
                         // Builtin call
                         "std.prelude.if" => {
@@ -72,7 +72,7 @@ impl LowerStage {
                         }
                         "std.stack.call" => {
                             basicblock
-                                .push(Spanned::new(IRInstruction::CallLambda, instruction.span));
+                                .push(Spanned::new(IRInstruction::CallIndirect, instruction.span));
                         }
                         "std.stack.drop" => {
                             basicblock.push(Spanned::new(IRInstruction::Drop, instruction.span));
@@ -88,8 +88,15 @@ impl LowerStage {
                         }
                         // Real word call
                         _ => {
+                            let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
+                                errors.push(CompileError::SymbolNotFound {
+                                    name: name.clone(),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
                             basicblock.push(Spanned::new(
-                                IRInstruction::Call { word_id: WordId(0) },
+                                IRInstruction::CallDirect { word_id },
                                 instruction.span,
                             ));
                         }
@@ -116,20 +123,52 @@ impl LowerStage {
                 HIRInstruction::Lambda {
                     stack_in: _,
                     stack_out: _,
-                    body: _,
+                    body,
                 } => {
-                    // TODO
+                    let lambda_slot = lambda_words.len();
+                    let word_id = WordId(base_word_count + lambda_slot);
+
+                    // Reserve the slot before lowering nested lambdas so this id stays stable.
+                    lambda_words.push(Spanned::new(
+                        IRWord {
+                            entrypoint: false,
+                            blocks: Vec::new(),
+                        },
+                        instruction.span,
+                    ));
+
+                    let lambda_word = match Self::lower_ir_word(
+                        ir_ctx,
+                        body,
+                        false,
+                        instruction.span,
+                        lambda_words,
+                        base_word_count,
+                    ) {
+                        Ok(word) => word,
+                        Err(err) => {
+                            errors.extend(err);
+                            continue;
+                        }
+                    };
+
+                    lambda_words[lambda_slot] = Spanned::new(lambda_word, instruction.span);
+                    basicblock.push(Spanned::new(
+                        IRInstruction::PushLambda { word_id },
+                        instruction.span,
+                    ));
                 }
             }
         }
-        result
-            .blocks
-            .push(basicblock.build(Spanned::new(IRTerminator::End, word.span)));
 
         if !errors.is_empty() {
             return Err(errors);
         }
-        Ok(Spanned::new(result, word.span))
+
+        Ok(IRWord {
+            entrypoint,
+            blocks: vec![basicblock.build(Spanned::new(IRTerminator::End, span))],
+        })
     }
 }
 
@@ -144,17 +183,20 @@ impl Stage<CompileContext> for LowerStage {
     ) -> Result<Self::Output, Vec<CompileError>> {
         let mut errors = Vec::new();
         let mut result = IRProgram { words: Vec::new() };
+        let mut lambda_words = Vec::new();
+        let base_word_count = ir_ctx.words.len();
 
         for module in &hir_program.modules {
-            let words = match Self::lower_module(module) {
-                Ok(words) => words,
-                Err(err) => {
-                    errors.extend(err);
-                    continue;
+            for word in &module.words {
+                match Self::lower_word(&ir_ctx, word, &mut lambda_words, base_word_count) {
+                    Ok(word) => result.words.push(word),
+                    Err(err) => {
+                        errors.extend(err);
+                    }
                 }
-            };
-            result.words.extend(words);
+            }
         }
+        result.words.extend(lambda_words);
 
         if !errors.is_empty() {
             return Err(errors);

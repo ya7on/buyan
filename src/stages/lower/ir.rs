@@ -40,21 +40,10 @@ pub enum IRConstant {
 
 #[derive(Debug, Clone)]
 pub enum IRInstruction {
-    PushConstant {
-        value: IRConstant,
-    },
-    Call {
-        word_id: WordId,
-    },
-    If {
-        then_branch: BasicBlockId,
-        else_branch: BasicBlockId,
-    },
-    While {
-        condition: BasicBlockId,
-        body: BasicBlockId,
-    },
-    CallLambda,
+    PushConstant { value: IRConstant },
+    PushLambda { word_id: WordId },
+    CallDirect { word_id: WordId },
+    CallIndirect,
     Drop,
     Dup,
     Swap,

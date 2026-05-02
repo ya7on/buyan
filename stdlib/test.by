@@ -1,7 +1,7 @@
-import std.math;
+import std.stack;
 
 module app;
 
-def main(-- u8)
-    2u8 2u8 std.math.add 2u8 std.math.add
+def main(--)
+    | -- | { } std.stack.call
 end

@@ -257,3 +257,24 @@ fn test_lambda_check_exact_stack_out() {
     .assert_parse_ok()
     .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
 }
+
+#[test]
+fn test_if() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import std.cfg;
+        import std.math;
+        module app;
+        def main( -- u8)
+            0u8 1u8 std.math.gt
+            | -- u8| { 67u8 }
+            | -- u8| { 69u8 }
+            std.cfg.if
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
