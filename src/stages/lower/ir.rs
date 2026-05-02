@@ -1,6 +1,6 @@
 use crate::{common::Spanned, stages::lower::context::WordId};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BasicBlockId(pub usize);
 
 #[derive(Debug, Clone)]
@@ -48,4 +48,5 @@ pub enum IRInstruction {
     Dup,
     Swap,
     Add,
+    Gt,
 }

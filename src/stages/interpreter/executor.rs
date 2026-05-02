@@ -4,12 +4,13 @@ use crate::{
     pipeline::Stage,
     stages::lower::{
         context::{IRContext, WordId},
-        ir::{IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator},
+        ir::{BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator},
     },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IRValue {
+    Bool(bool),
     U8(u8),
     String(String),
     Lambda(WordId),
@@ -49,12 +50,17 @@ impl IRInterpreter {
 
     fn execute_word(&mut self, program: &IRProgram, word_id: WordId) {
         let word = program.words.get(word_id.id()).expect("word not found");
-        let block = word.blocks.first().expect("word has no blocks");
-
-        self.execute_block(program, block);
+        let mut block_id = BasicBlockId(0);
+        loop {
+            let block = word.blocks.get(block_id.0).expect("block not found");
+            let Some(next_block_id) = self.execute_block(program, block) else {
+                break;
+            };
+            block_id = next_block_id;
+        }
     }
 
-    fn execute_block(&mut self, program: &IRProgram, block: &IRBasicBlock) {
+    fn execute_block(&mut self, program: &IRProgram, block: &IRBasicBlock) -> Option<BasicBlockId> {
         for instruction in &block.instructions {
             println!("{:?}", instruction);
             match &instruction.value {
@@ -97,14 +103,43 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
+                IRInstruction::Gt => {
+                    let rhs = self.stack.pop().expect("stack underflow");
+                    let lhs = self.stack.pop().expect("stack underflow");
+                    match (lhs, rhs) {
+                        (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs > rhs));
+                        }
+                        _ => panic!("gt expects u8 operands"),
+                    }
+                }
             }
             println!("{:?}", self.stack);
         }
 
         match &block.terminator.value {
-            IRTerminator::End => {}
-            IRTerminator::Branch { .. } => todo!(),
-            IRTerminator::BranchIfZero { .. } => todo!(),
+            IRTerminator::End => None,
+            IRTerminator::Branch { branch } => Some(*branch),
+            IRTerminator::BranchIfZero {
+                then_branch,
+                else_branch,
+            } => {
+                let else_lambda = self.stack.pop().expect("stack underflow");
+                let then_lambda = self.stack.pop().expect("stack underflow");
+                let condition = self.stack.pop().expect("stack underflow");
+
+                let IRValue::Bool(condition) = condition else {
+                    panic!("branch expects bool condition");
+                };
+
+                if condition {
+                    self.stack.push(else_lambda);
+                    Some(*else_branch)
+                } else {
+                    self.stack.push(then_lambda);
+                    Some(*then_branch)
+                }
+            }
         }
     }
 }

@@ -5,7 +5,10 @@ use crate::{
     stages::{
         lower::{
             context::{IRContext, WordId},
-            ir::{IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator, IRWord},
+            ir::{
+                BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator,
+                IRWord,
+            },
         },
         semantic::hir::{HIRInstruction, HIRLiteral, HIRProgram, HIRWord},
     },
@@ -61,14 +64,56 @@ impl LowerStage {
         base_word_count: usize,
     ) -> Result<IRWord, Vec<CompileError>> {
         let mut errors = Vec::new();
+        let mut blocks = Vec::new();
         let mut basicblock = BasicBlockBuilder::default();
         for instruction in body {
             match &instruction.value {
                 HIRInstruction::Call { name, symbol_id } => {
                     match name.as_str() {
                         // Builtin call
-                        "std.prelude.if" => {
-                            todo!()
+                        "std.cfg.if" => {
+                            let current_block_id = blocks.len();
+                            let then_branch = BasicBlockId(current_block_id + 1);
+                            let else_branch = BasicBlockId(current_block_id + 2);
+                            let join_branch = BasicBlockId(current_block_id + 3);
+
+                            blocks.push(basicblock.build(Spanned::new(
+                                IRTerminator::BranchIfZero {
+                                    then_branch,
+                                    else_branch,
+                                },
+                                instruction.span,
+                            )));
+                            blocks.push(
+                                BasicBlockBuilder {
+                                    instructions: vec![Spanned::new(
+                                        IRInstruction::CallIndirect,
+                                        instruction.span,
+                                    )],
+                                }
+                                .build(Spanned::new(
+                                    IRTerminator::Branch {
+                                        branch: join_branch,
+                                    },
+                                    instruction.span,
+                                )),
+                            );
+                            blocks.push(
+                                BasicBlockBuilder {
+                                    instructions: vec![Spanned::new(
+                                        IRInstruction::CallIndirect,
+                                        instruction.span,
+                                    )],
+                                }
+                                .build(Spanned::new(
+                                    IRTerminator::Branch {
+                                        branch: join_branch,
+                                    },
+                                    instruction.span,
+                                )),
+                            );
+
+                            basicblock = BasicBlockBuilder::default();
                         }
                         "std.stack.call" => {
                             basicblock
@@ -86,9 +131,13 @@ impl LowerStage {
                         "std.math.add" => {
                             basicblock.push(Spanned::new(IRInstruction::Add, instruction.span));
                         }
+                        "std.math.gt" => {
+                            basicblock.push(Spanned::new(IRInstruction::Gt, instruction.span));
+                        }
                         // Real word call
                         _ => {
-                            let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
+                            let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied()
+                            else {
                                 errors.push(CompileError::SymbolNotFound {
                                     name: name.clone(),
                                     span: instruction.span,
@@ -165,10 +214,9 @@ impl LowerStage {
             return Err(errors);
         }
 
-        Ok(IRWord {
-            entrypoint,
-            blocks: vec![basicblock.build(Spanned::new(IRTerminator::End, span))],
-        })
+        blocks.push(basicblock.build(Spanned::new(IRTerminator::End, span)));
+
+        Ok(IRWord { entrypoint, blocks })
     }
 }
 
