@@ -168,6 +168,43 @@ impl Default for HIRContext {
 }
 
 impl HIRContext {
+    pub fn format_type(&self, ty: &HIRType) -> String {
+        match ty {
+            HIRType::BuiltIn(symbol_id) => match self.get(*symbol_id) {
+                Some(SymbolKind::Type { name, .. }) => name.clone(),
+                _ => "<unknown>".to_string(),
+            },
+            HIRType::Struct(symbol_id) => match self.get(*symbol_id) {
+                Some(SymbolKind::Struct { name, .. }) => name.clone(),
+                _ => "<unknown>".to_string(),
+            },
+            HIRType::TypeVar(symbol_id) => match self.get(*symbol_id) {
+                Some(SymbolKind::TypeVar { name, .. }) => name.clone(),
+                _ => "<unknown>".to_string(),
+            },
+            HIRType::StackVar(symbol_id) => match self.get(*symbol_id) {
+                Some(SymbolKind::StackVar { name }) => format!("...{name}"),
+                _ => "<unknown>".to_string(),
+            },
+            HIRType::Lambda {
+                stack_in,
+                stack_out,
+            } => format!(
+                "|{} -- {}|",
+                stack_in
+                    .iter()
+                    .map(|ty| self.format_type(ty))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                stack_out
+                    .iter()
+                    .map(|ty| self.format_type(ty))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
+
     pub fn lookup(&self, name: &DottedPath) -> Option<SymbolId> {
         self.symbols_index.get(&name.to_string()).copied()
     }

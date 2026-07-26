@@ -16,7 +16,7 @@ impl TypeCheckStage {
     fn type_check_instruction(
         hir_ctx: &HIRContext,
         instruction: &Spanned<HIRInstruction>,
-        stack_analysis: &mut StackAnalysis,
+        stack_analysis: &mut StackAnalysis<'_>,
     ) -> Result<(), DiagnosticMessage> {
         match &instruction.value {
             HIRInstruction::Call { name, symbol_id } => {
@@ -119,7 +119,7 @@ impl TypeCheckStage {
                     stack_out: stack_out.clone(),
                 });
 
-                let mut lambda_stack_analysis = StackAnalysis::new(stack_in.clone());
+                let mut lambda_stack_analysis = StackAnalysis::new(hir_ctx, stack_in.clone());
 
                 for instruction in body {
                     TypeCheckStage::type_check_instruction(
@@ -135,6 +135,7 @@ impl TypeCheckStage {
 
     fn type_check_word(word: &HIRWord, hir_ctx: &HIRContext) -> Result<(), DiagnosticMessage> {
         let mut stack_analysis = StackAnalysis::new(
+            hir_ctx,
             word.signature
                 .stack_in
                 .iter()

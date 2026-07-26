@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use crate::{
     common::Span,
     error::DiagnosticMessage,
-    stages::semantic::{context::SymbolId, hir::HIRType},
+    stages::semantic::{
+        context::{HIRContext, SymbolId},
+        hir::HIRType,
+    },
 };
 
 #[derive(Debug, Default)]
@@ -13,7 +16,8 @@ pub struct Substitution {
 }
 
 #[derive(Debug)]
-pub struct CallAnalysis {
+pub struct CallAnalysis<'a> {
+    hir_ctx: &'a HIRContext,
     stack: Vec<HIRType>,
     initial_stack: Vec<HIRType>,
     substitution: Substitution,
@@ -22,14 +26,16 @@ pub struct CallAnalysis {
     span: Span,
 }
 
-impl CallAnalysis {
+impl<'a> CallAnalysis<'a> {
     pub fn new(
+        hir_ctx: &'a HIRContext,
         initial_stack: Vec<HIRType>,
         expected_stack_in: Vec<HIRType>,
         expected_stack_out: Vec<HIRType>,
         span: Span,
     ) -> Self {
         Self {
+            hir_ctx,
             stack: initial_stack.clone(),
             initial_stack,
             substitution: Substitution::default(),
@@ -48,12 +54,12 @@ impl CallAnalysis {
                         expected_stack: self
                             .expected_stack_in
                             .iter()
-                            .map(|item| format!("{item:?}"))
+                            .map(|item| self.hir_ctx.format_type(item))
                             .collect(),
                         actual_stack: self
                             .initial_stack
                             .iter()
-                            .map(|item| format!("{item:?}"))
+                            .map(|item| self.hir_ctx.format_type(item))
                             .collect(),
                         span: self.span,
                     });
@@ -67,12 +73,12 @@ impl CallAnalysis {
             //                 expected_stack: self
             //                     .expected_stack_in
             //                     .iter()
-            //                     .map(|item| format!("{item:?}"))
+            //                     .map(|item| self.hir_ctx.format_type(item))
             //                     .collect(),
             //                 actual_stack: self
             //                     .initial_stack
             //                     .iter()
-            //                     .map(|item| format!("{item:?}"))
+            //                     .map(|item| self.hir_ctx.format_type(item))
             //                     .collect(),
             //                 span: self.span,
             //             });
@@ -89,12 +95,12 @@ impl CallAnalysis {
                     expected_stack: self
                         .expected_stack_in
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     actual_stack: self
                         .initial_stack
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     span: self.span,
                 });
@@ -111,12 +117,12 @@ impl CallAnalysis {
                 expected_stack: self
                     .expected_stack_in
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 actual_stack: self
                     .initial_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 span: self.span,
             });
@@ -140,12 +146,12 @@ impl CallAnalysis {
                 expected_stack: self
                     .expected_stack_in
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 actual_stack: self
                     .initial_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 span: self.span,
             });
@@ -163,12 +169,12 @@ impl CallAnalysis {
                     expected_stack: self
                         .expected_stack_in
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     actual_stack: self
                         .initial_stack
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     span: self.span,
                 });
@@ -191,12 +197,12 @@ impl CallAnalysis {
                     expected_stack: self
                         .expected_stack_in
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     actual_stack: self
                         .initial_stack
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     span: self.span,
                 });
@@ -236,12 +242,12 @@ impl CallAnalysis {
                     expected_stack: self
                         .expected_stack_in
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     actual_stack: self
                         .initial_stack
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     span: self.span,
                 });
@@ -265,12 +271,12 @@ impl CallAnalysis {
                     expected_stack: self
                         .expected_stack_in
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     actual_stack: self
                         .initial_stack
                         .iter()
-                        .map(|item| format!("{item:?}"))
+                        .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
                     span: self.span,
                 });
@@ -304,9 +310,12 @@ impl CallAnalysis {
                 label: "stack mismatch".to_string(),
                 expected_stack: expected_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
-                actual_stack: rest.iter().map(|item| format!("{item:?}")).collect(),
+                actual_stack: rest
+                    .iter()
+                    .map(|item| self.hir_ctx.format_type(item))
+                    .collect(),
                 span: self.span,
             });
         }
@@ -329,12 +338,12 @@ impl CallAnalysis {
                 expected_stack: self
                     .expected_stack_out
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 actual_stack: self
                     .initial_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 span: self.span,
             })
@@ -350,12 +359,12 @@ impl CallAnalysis {
                 expected_stack: self
                     .expected_stack_out
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 actual_stack: self
                     .initial_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 span: self.span,
             })
@@ -381,12 +390,12 @@ impl CallAnalysis {
                 expected_stack: self
                     .expected_stack_out
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 actual_stack: self
                     .initial_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 span: self.span,
             }),
@@ -430,14 +439,15 @@ impl CallAnalysis {
     }
 }
 
-#[derive(Default)]
-pub struct StackAnalysis {
+pub struct StackAnalysis<'a> {
+    hir_ctx: &'a HIRContext,
     stack: Vec<HIRType>,
 }
 
-impl StackAnalysis {
-    pub fn new(initial_stack: Vec<HIRType>) -> Self {
+impl<'a> StackAnalysis<'a> {
+    pub fn new(hir_ctx: &'a HIRContext, initial_stack: Vec<HIRType>) -> Self {
         Self {
+            hir_ctx,
             stack: initial_stack.clone(),
         }
     }
@@ -452,7 +462,8 @@ impl StackAnalysis {
         stack_out: Vec<HIRType>,
         span: Span,
     ) -> Result<(), DiagnosticMessage> {
-        let mut call_analysis = CallAnalysis::new(self.stack.clone(), stack_in, stack_out, span);
+        let mut call_analysis =
+            CallAnalysis::new(self.hir_ctx, self.stack.clone(), stack_in, stack_out, span);
         self.stack = call_analysis.apply()?;
         Ok(())
     }
@@ -467,9 +478,13 @@ impl StackAnalysis {
                 label: "stack mismatch".to_string(),
                 expected_stack: expected_stack
                     .iter()
-                    .map(|item| format!("{item:?}"))
+                    .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
-                actual_stack: self.stack.iter().map(|item| format!("{item:?}")).collect(),
+                actual_stack: self
+                    .stack
+                    .iter()
+                    .map(|item| self.hir_ctx.format_type(item))
+                    .collect(),
                 span,
             });
         }
