@@ -137,6 +137,15 @@ impl TypeCheckStage {
                         &mut lambda_stack_analysis,
                     )?;
                 }
+
+                lambda_stack_analysis.match_stack(
+                    stack_out.clone(),
+                    instruction.span,
+                    body.last()
+                        .map(|instruction| instruction.span)
+                        .into_iter()
+                        .collect(),
+                )?;
             }
         }
         Ok(())
