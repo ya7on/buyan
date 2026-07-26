@@ -5,7 +5,7 @@ use buyan::{
     common::CompileContext,
     error::{Diagnostic, DiagnosticKind},
     fs::RealFileSystem,
-    lints::{LintPass, empty_word::EmptyWord},
+    lints::{LintPass, empty_word::EmptyWord, unused_import::UnusedImport},
     pipeline::PipelineBuilder,
     stages::{
         interpreter::executor::IRInterpreter,
@@ -74,7 +74,11 @@ fn main() {
         .stage(CollectNamesStage)
         .stage(CollectHIRStage)
         .stage(TypeCheckStage)
-        .stage(LintPass::default().lint(EmptyWord))
+        .stage(
+            LintPass::default()
+                .lint(EmptyWord)
+                .lint(UnusedImport::default()),
+        )
         .stage(CollectSymbolsStage)
         .stage(LowerStage);
 

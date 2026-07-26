@@ -1,4 +1,5 @@
 pub mod empty_word;
+pub mod unused_import;
 
 use crate::{
     common::{CompileContext, Spanned},
@@ -43,6 +44,9 @@ pub trait Lint {
         _instruction: &Spanned<HIRInstruction>,
         _diagnostics: &mut Diagnostics,
     ) {
+    }
+
+    fn finish(&mut self, _ctx: &HIRContext, _program: &HIRProgram, _diagnostics: &mut Diagnostics) {
     }
 }
 
@@ -111,6 +115,9 @@ impl Stage<CompileContext> for LintPass {
                     );
                 }
             }
+        }
+        for lint in &mut self.lints {
+            lint.finish(&hir_ctx, &hir_program, &mut diagnostics);
         }
 
         StageResult::new(Some((hir_ctx, hir_program)), diagnostics)

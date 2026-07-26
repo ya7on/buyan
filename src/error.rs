@@ -99,6 +99,10 @@ pub enum DiagnosticMessage {
     EmptyWord {
         span: Span,
     },
+    UnusedImport {
+        name: String,
+        span: Span,
+    },
 }
 
 impl Default for DiagnosticMessage {
@@ -125,12 +129,14 @@ impl DiagnosticMessage {
             Self::InvalidFieldIndex { .. } => 11,
             Self::InvalidStack { .. } => 12,
             Self::EmptyWord { .. } => 13,
+            Self::UnusedImport { .. } => 14,
         }
     }
 
     pub fn span(&self) -> Option<Span> {
         match self {
             Self::EmptyWord { span }
+            | Self::UnusedImport { span, .. }
             | Self::ImportError { span, .. }
             | Self::UnexpectedToken { span }
             | Self::ParseError { span, .. }
