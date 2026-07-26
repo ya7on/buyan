@@ -7,7 +7,7 @@ Buyan is a simple Forth-like language written in Rust.
 [source](./examples/hello_world.by)
 
 ```
-$ cargo run --bin cli -- --path ./examples/hello_world.by
+$ cargo run --bin buyan -- --path ./examples/hello_world.by
 Hello, world!
 ```
 
