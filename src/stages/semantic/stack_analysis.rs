@@ -61,6 +61,7 @@ impl<'a> CallAnalysis<'a> {
                             .iter()
                             .map(|item| self.hir_ctx.format_type(item))
                             .collect(),
+                        additional_spans: Vec::new(),
                         span: self.span,
                     });
                 }
@@ -80,6 +81,7 @@ impl<'a> CallAnalysis<'a> {
             //                     .iter()
             //                     .map(|item| self.hir_ctx.format_type(item))
             //                     .collect(),
+            //                 additional_spans: Vec::new(),
             //                 span: self.span,
             //             });
             //         }
@@ -102,6 +104,7 @@ impl<'a> CallAnalysis<'a> {
                         .iter()
                         .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
+                    additional_spans: Vec::new(),
                     span: self.span,
                 });
             }
@@ -124,6 +127,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
+                additional_spans: Vec::new(),
                 span: self.span,
             });
         }
@@ -153,6 +157,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
+                additional_spans: Vec::new(),
                 span: self.span,
             });
         };
@@ -176,6 +181,7 @@ impl<'a> CallAnalysis<'a> {
                         .iter()
                         .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
+                    additional_spans: Vec::new(),
                     span: self.span,
                 });
             }
@@ -204,6 +210,7 @@ impl<'a> CallAnalysis<'a> {
                         .iter()
                         .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
+                    additional_spans: Vec::new(),
                     span: self.span,
                 });
             }
@@ -249,6 +256,7 @@ impl<'a> CallAnalysis<'a> {
                         .iter()
                         .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
+                    additional_spans: Vec::new(),
                     span: self.span,
                 });
             }
@@ -278,6 +286,7 @@ impl<'a> CallAnalysis<'a> {
                         .iter()
                         .map(|item| self.hir_ctx.format_type(item))
                         .collect(),
+                    additional_spans: Vec::new(),
                     span: self.span,
                 });
             };
@@ -316,6 +325,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
+                additional_spans: Vec::new(),
                 span: self.span,
             });
         }
@@ -345,6 +355,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
+                additional_spans: Vec::new(),
                 span: self.span,
             })
     }
@@ -366,6 +377,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
+                additional_spans: Vec::new(),
                 span: self.span,
             })
     }
@@ -397,6 +409,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
+                additional_spans: Vec::new(),
                 span: self.span,
             }),
         }
@@ -472,6 +485,7 @@ impl<'a> StackAnalysis<'a> {
         &self,
         expected_stack: Vec<HIRType>,
         span: Span,
+        additional_spans: Vec<Span>,
     ) -> Result<(), DiagnosticMessage> {
         if self.stack != expected_stack {
             return Err(DiagnosticMessage::InvalidStack {
@@ -486,6 +500,7 @@ impl<'a> StackAnalysis<'a> {
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
                 span,
+                additional_spans,
             });
         }
         Ok(())

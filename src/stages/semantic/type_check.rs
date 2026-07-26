@@ -155,7 +155,12 @@ impl TypeCheckStage {
                 .map(|item| &item.value)
                 .cloned()
                 .collect(),
-            word.signature.name.span, // TODO use stack_out span
+            word.signature.stack_effect_span,
+            word.body
+                .last()
+                .map(|instruction| instruction.span)
+                .into_iter()
+                .collect(),
         )?;
 
         Ok(())

@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{common::Spanned, stages::semantic::context::SymbolId};
+use crate::{
+    common::{Span, Spanned},
+    stages::semantic::context::SymbolId,
+};
 
 #[derive(Debug, Clone)]
 pub struct HIRProgram {
@@ -25,6 +28,7 @@ pub struct HIRStruct {
 #[derive(Debug, Clone)]
 pub struct HIRWordSignature {
     pub name: Spanned<String>,
+    pub stack_effect_span: Span,
     pub stack_in: Vec<Spanned<HIRType>>,
     pub stack_out: Vec<Spanned<HIRType>>,
     pub type_vars: Vec<Spanned<SymbolId>>,

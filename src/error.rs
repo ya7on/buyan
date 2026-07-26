@@ -93,6 +93,7 @@ pub enum DiagnosticMessage {
     InvalidStack {
         label: String,
         span: Span,
+        additional_spans: Vec<Span>,
         expected_stack: Vec<String>,
         actual_stack: Vec<String>,
     },
@@ -149,6 +150,25 @@ impl DiagnosticMessage {
             | Self::InvalidFieldIndex { span, .. }
             | Self::InvalidStack { span, .. } => Some(*span),
             Self::Unknown { .. } | Self::FileNotFound { .. } => None,
+        }
+    }
+
+    pub fn additional_labels(&self) -> Vec<(Span, String)> {
+        match self {
+            Self::InvalidStack {
+                additional_spans,
+                actual_stack,
+                ..
+            } => additional_spans
+                .iter()
+                .map(|span| {
+                    (
+                        *span,
+                        format!("final stack is [{}]", actual_stack.join(", ")),
+                    )
+                })
+                .collect(),
+            _ => Vec::new(),
         }
     }
 

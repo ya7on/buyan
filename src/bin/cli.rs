@@ -63,18 +63,34 @@ fn print_errors(context: &CompileContext, diagnostics: &[Diagnostic]) {
         let range = source.content[..span.start].chars().count()
             ..source.content[..span.end].chars().count();
 
-        if let Err(error) = Report::build(kind, (path.clone(), range.clone()))
+        let mut report = Report::build(kind, (path.clone(), range.clone()))
             .with_code(code)
             .with_message(title)
             .with_label(
                 Label::new((path, range))
                     .with_message(description)
                     .with_color(color),
-            )
-            .with_help(help)
-            .finish()
-            .eprint(&mut cache)
-        {
+            );
+
+        for (additional_span, message) in diagnostic.message.additional_labels() {
+            let Some(additional_source) = context.sources.get(&additional_span.source_id) else {
+                continue;
+            };
+            let additional_path = additional_source.path.display().to_string();
+            let additional_range = additional_source.content[..additional_span.start]
+                .chars()
+                .count()
+                ..additional_source.content[..additional_span.end]
+                    .chars()
+                    .count();
+            report = report.with_label(
+                Label::new((additional_path, additional_range))
+                    .with_message(message)
+                    .with_color(Color::Cyan),
+            );
+        }
+
+        if let Err(error) = report.with_help(help).finish().eprint(&mut cache) {
             eprintln!("failed to print diagnostic: {error}");
         }
     }

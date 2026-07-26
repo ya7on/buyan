@@ -278,6 +278,7 @@ impl CollectHIRStage {
             id: word_id,
             signature: HIRWordSignature {
                 name: Spanned::new(fullpath.to_string(), word.name.span),
+                stack_effect_span: word.stack_effect.span,
                 stack_in: stack_in.clone(),
                 stack_out: stack_out.clone(),
                 type_vars: typevars.clone(),
