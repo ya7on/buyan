@@ -312,6 +312,7 @@ impl<'a> CallAnalysis<'a> {
         actual_stack: Vec<HIRType>,
         expected_stack: Vec<HIRType>,
     ) -> Result<(), DiagnosticMessage> {
+        let original_actual_stack = actual_stack.clone();
         let rest = self.unify_stack_pair(actual_stack, expected_stack.clone())?;
 
         if !rest.is_empty() {
@@ -321,7 +322,7 @@ impl<'a> CallAnalysis<'a> {
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
-                actual_stack: rest
+                actual_stack: original_actual_stack
                     .iter()
                     .map(|item| self.hir_ctx.format_type(item))
                     .collect(),
