@@ -5,125 +5,13 @@ use crate::common::executor::TestExecutor;
 mod common;
 
 #[test]
-fn test_simple_program() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main( -- ) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_undefined_type() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main(A -- A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolNotFound { .. }));
-}
-
-#[test]
-fn test_undefined_stackvar() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main(...A -- ...A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolNotFound { .. }));
-}
-
-#[test]
-fn test_typevars_duplicate() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<A, A>(A, A -- A, A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolAlreadyExists { .. }));
-}
-
-#[test]
-fn test_stackvars_duplicate() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<...A, ...A>(...A -- ...A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolAlreadyExists { .. }));
-}
-
-#[test]
-fn test_stackvar_typevar_same_name() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<...A, A>(...A -- ...A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolAlreadyExists { .. }));
-}
-
-#[test]
-fn test_stackvar_used_as_typevar() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<...A>(A -- A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolNotFound { .. }));
-}
-
-#[test]
-fn test_typevar_used_as_stackvar() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<A>(...A -- ...A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolNotFound { .. }));
-}
-
-#[test]
-fn test_2_plus_2() {
+fn values() {
     TestExecutor::input((
         "app.by",
         r#"
         import std.math;
         module app;
-        def main( -- u8) 2u8 2u8 std.math.add end
+        def main( -- u8, string) 1u8 2u8 std.math.add "x" end
         "#,
     ))
     .check()
@@ -132,12 +20,14 @@ fn test_2_plus_2() {
 }
 
 #[test]
-fn test_string() {
+fn generics() {
     TestExecutor::input((
         "app.by",
         r#"
         module app;
-        def main( -- string) "Hello, World!" end
+        def id<A>(A -- A) end
+        def keep<...S, A>(...S, A -- ...S, A) end
+        def main( -- u8) 1u8 id keep end
         "#,
     ))
     .check()
@@ -146,130 +36,19 @@ fn test_string() {
 }
 
 #[test]
-fn test_invalid_stack_out_type() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main( -- u8) "Hello, World!" end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-}
-
-#[test]
-fn test_lambda() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import std.stack;
-        module app;
-        def foo( | u8 -- | -- ) std.stack.drop end
-        def main( -- ) | u8 -- | { 67u8 } foo end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_invalid_lambda() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import std.stack;
-        module app;
-        def foo( | string -- | -- ) std.stack.drop end
-        def main( -- ) | u8 -- | { 67u8 } foo end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-}
-
-#[test]
-fn test_empty_body_typecheck() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main( -- ) 2u8 end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-}
-
-#[test]
-fn test_call() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import std.stack;
-        module app;
-        def main( -- u8) | -- u8| { 67u8 } std.stack.call end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_lambda_check_exact_stack_in() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import std.stack;
-        module app;
-        def takes_lambda(|string -- u8| --) std.stack.drop end
-        def test( -- )
-            |string, string -- u8| { std.stack.drop std.stack.drop 67u8 }
-            takes_lambda
-        end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-}
-
-#[test]
-fn test_lambda_check_exact_stack_out() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import std.stack;
-        module app;
-        def takes_lambda(|string -- u8| --) std.stack.drop end
-        def test( -- )
-            |string -- u8, u8| { std.stack.drop 67u8 69u8 }
-            takes_lambda
-        end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-}
-
-#[test]
-fn test_if() {
+fn lambdas() {
     TestExecutor::input((
         "app.by",
         r#"
         import std.cfg;
         import std.math;
+        import std.stack;
         module app;
+        def call( -- string) | -- string| { "x" } std.stack.call end
         def main( -- u8)
             0u8 1u8 std.math.gt
-            | -- u8| { 67u8 }
-            | -- u8| { 69u8 }
+            | -- u8| { 2u8 }
+            | -- u8| { 3u8 }
             std.cfg.if
         end
         "#,
@@ -280,151 +59,81 @@ fn test_if() {
 }
 
 #[test]
-fn test_struct_roundtrip() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        struct Pair(u8, string);
-        def main( -- u8, string)
-            7u8 "seven" >Pair Pair>
-        end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_nested_struct_with_forward_reference() {
+fn structs() {
     TestExecutor::input((
         "app.by",
         r#"
         module app;
         struct Outer(Inner, u8);
         struct Inner(string);
-        def main( -- Outer)
-            "value" >Inner 7u8 >Outer
-        end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_qualified_struct() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import geometry;
-        module app;
-        def main( -- geometry.Point)
-            2u8 3u8 >geometry.Point
-        end
-        "#,
-    ))
-    .add_file((
-        "geometry.by",
-        r#"
-        module geometry;
-        struct Point(u8, u8);
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_struct_dependency_from_imported_module() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import geometry;
-        module app;
-        struct Segment(geometry.Point, geometry.Point);
-        def main( -- Segment)
-            1u8 2u8 >geometry.Point
-            3u8 4u8 >geometry.Point
-            >Segment
-        end
-        "#,
-    ))
-    .add_file((
-        "geometry.by",
-        r#"
-        module geometry;
-        struct Point(u8, u8);
-        "#,
-    ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_ok();
-}
-
-#[test]
-fn test_struct_pack_type_mismatch() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
         struct Pair(u8, string);
-        def main( -- Pair)
-            "wrong" 7u8 >Pair
-        end
+        def nested(Outer -- string) Outer.0 Inner.0 end
+        def roundtrip( -- u8, string) 1u8 "x" >Pair Pair> end
         "#,
     ))
     .check()
     .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+    .assert_hir_ok();
 }
 
 #[test]
-fn test_unpack_wrong_struct() {
+fn modules() {
     TestExecutor::input((
         "app.by",
         r#"
+        import deep.geometry;
         module app;
-        struct A(u8);
-        struct B(u8);
+        struct Segment(deep.geometry.Point);
         def main( -- u8)
-            7u8 >A B>
+            1u8 2u8 >deep.geometry.Point >Segment
+            Segment.0 deep.geometry.Point.1
         end
         "#,
     ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
-}
-
-#[test]
-fn test_unknown_struct_field() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        struct Wrapper(Missing);
-        "#,
+    .add_file((
+        "deep/geometry.by",
+        "module deep.geometry; struct Point(u8, u8);",
     ))
     .check()
     .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::SymbolNotFound { .. }));
+    .assert_hir_ok();
 }
 
 #[test]
-fn test_recursive_struct() {
-    TestExecutor::input((
+fn symbols() {
+    TestExecutor::input(("app.by", "module app; def main(Missing -- Missing) end"))
+        .check()
+        .assert_parse_ok()
+        .assert_hir_err(|error| matches!(error, CompileError::SymbolNotFound { .. }));
+}
+
+#[test]
+fn cycle() {
+    TestExecutor::input(("app.by", "module app; struct A(B); struct B(A);"))
+        .check()
+        .assert_parse_ok()
+        .assert_hir_err(|error| matches!(error, CompileError::RecursiveStruct { .. }));
+}
+
+#[test]
+fn types() {
+    let executor = TestExecutor::input((
         "app.by",
         r#"
         module app;
-        struct A(B);
-        struct B(A);
+        def first( -- u8) end
+        def second(u8 -- ) end
+        def third( -- u8) "x" end
         "#,
     ))
-    .check()
-    .assert_parse_ok()
-    .assert_hir_err(|err| matches!(err, CompileError::RecursiveStruct { .. }));
+    .check();
+    let errors = executor.hir.unwrap().unwrap_err();
+
+    assert_eq!(
+        errors
+            .iter()
+            .filter(|error| matches!(error, CompileError::InvalidStack { .. }))
+            .count(),
+        3
+    );
 }

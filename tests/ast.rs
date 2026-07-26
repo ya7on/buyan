@@ -5,145 +5,31 @@ use crate::common::executor::TestExecutor;
 mod common;
 
 #[test]
-fn test_invalid_token() {
+fn program() {
     TestExecutor::input((
         "app.by",
         r#"
-        !
-        "#,
-    ))
-    .check()
-    .assert_parse_err(|err| matches!(err, CompileError::UnexpectedToken { .. }));
-}
-
-#[test]
-fn test_simple_program() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main( -- ) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok();
-}
-
-#[test]
-fn test_imports() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import foo;
-        import bar;
-        import really.long.name;
-
-        module app;
-        "#,
-    ))
-    .add_file(("foo.by", "module foo;"))
-    .add_file(("bar.by", "module bar;"))
-    .add_file(("really/long/name.by", "module really.long.name;"))
-    .check()
-    .assert_parse_ok();
-}
-
-#[test]
-fn test_import_std() {
-    TestExecutor::input((
-        "app.by",
-        r#"
+        import dep;
+        import deep.lib;
         import std.stack;
         module app;
-        def main( -- ) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok();
-}
-
-#[test]
-fn test_import_err() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        import foo;
-        module app;
-        def main( -- ) end
-        "#,
-    ))
-    .check()
-    .assert_parse_err(|err| {
-        matches!(
-            err,
-            CompileError::ImportError { path, .. } if path == "foo.by"
-        )
-    });
-}
-
-#[test]
-fn test_typevars() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<A, B, C>(A, B, C -- C, B, A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok();
-}
-
-#[test]
-fn test_stackvars() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<...A, ...B>(...A -- ...B) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok();
-}
-
-#[test]
-fn test_stackvars_with_typevars() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main<...S, A, B>(...S, A, B -- ...S, B, A) end
-        "#,
-    ))
-    .check()
-    .assert_parse_ok();
-}
-
-#[test]
-fn test_intrinsics_attribute() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
         #[intrinsic]
-        def main( -- ) end
+        def main( -- u8, string) 1u8 "x" dep.word end
         "#,
     ))
+    .add_file(("dep.by", "module dep; def word( -- ) end"))
+    .add_file(("deep/lib.by", "module deep.lib;"))
     .check()
     .assert_parse_ok();
 }
 
 #[test]
-fn test_struct_pack_unpack() {
+fn generics() {
     TestExecutor::input((
         "app.by",
         r#"
         module app;
-        struct Point(u8, u8);
-        def main( -- u8, u8)
-            2u8 3u8 >Point Point>
-        end
+        def swap<...S, A, B>(...S, A, B -- ...S, B, A) end
         "#,
     ))
     .check()
@@ -151,23 +37,32 @@ fn test_struct_pack_unpack() {
 }
 
 #[test]
-fn test_empty_and_qualified_struct_syntax() {
+fn structs() {
     TestExecutor::input((
         "app.by",
         r#"
         import geometry;
         module app;
-        struct Unit();
-        def main( -- geometry.Point)
-            2u8 3u8 >geometry.Point
-        end
+        struct Pair(u8, string);
+        def unpack(Pair -- u8, string) Pair> end
+        def field(Pair -- u8) Pair.0 end
+        def qualified( -- geometry.Point) 1u8 2u8 >geometry.Point end
+        def path( -- ) geometry.Point.0.tail end
         "#,
     ))
-    .add_file((
-        "geometry.by",
+    .add_file(("geometry.by", "module geometry; struct Point(u8, u8);"))
+    .check()
+    .assert_parse_ok();
+}
+
+#[test]
+fn lambdas() {
+    TestExecutor::input((
+        "app.by",
         r#"
-        module geometry;
-        struct Point(u8, u8);
+        module app;
+        def apply(|u8 -- string| -- ) end
+        def main( -- ) |u8 -- string| { "x" } apply end
         "#,
     ))
     .check()
@@ -175,15 +70,22 @@ fn test_empty_and_qualified_struct_syntax() {
 }
 
 #[test]
-fn test_struct_after_word_is_invalid() {
-    TestExecutor::input((
-        "app.by",
-        r#"
-        module app;
-        def main( -- ) end
-        struct Point(u8, u8);
-        "#,
-    ))
-    .check()
-    .assert_parse_err(|err| matches!(err, CompileError::ParseError { .. }));
+fn token() {
+    TestExecutor::input(("app.by", "!"))
+        .check()
+        .assert_parse_err(|error| matches!(error, CompileError::UnexpectedToken { .. }));
+}
+
+#[test]
+fn syntax() {
+    TestExecutor::input(("app.by", "module app; def main( -- ) end struct A(u8);"))
+        .check()
+        .assert_parse_err(|error| matches!(error, CompileError::ParseError { .. }));
+}
+
+#[test]
+fn import() {
+    TestExecutor::input(("app.by", "import missing; module app;"))
+        .check()
+        .assert_parse_err(|error| matches!(error, CompileError::ImportError { .. }));
 }

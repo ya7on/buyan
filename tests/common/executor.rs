@@ -3,6 +3,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use buyan::{
+    common::SourceSpan,
     error::CompileError,
     fs::FileSystem,
     pipeline::PipelineBuilder,
@@ -19,9 +20,8 @@ use buyan::{
         },
     },
 };
-use chumsky::span::SimpleSpan;
 
-type LexerResult = Result<Vec<(TokenKind, SimpleSpan)>, Vec<CompileError>>;
+type LexerResult = Result<Vec<(TokenKind, SourceSpan)>, Vec<CompileError>>;
 type ParserResult = Result<ASTModule, Vec<CompileError>>;
 
 #[derive(Default)]
@@ -68,25 +68,23 @@ impl TestExecutor {
 
     pub fn check(mut self) -> Self {
         let pipeline = PipelineBuilder::new(PathBuf::from("app.by"));
-        let pipeline = pipeline.stage_initialized::<ParseStage<TestFilesystem>>(ParseStage {
+        let pipeline = pipeline.stage(ParseStage {
             file_loader: TestFilesystem {
                 files: self.inputs.clone(),
             },
         });
         self.ast = Some(pipeline.dump().cloned().map_err(|err| err.clone()));
         let pipeline = pipeline
-            .stage::<CollectNamesStage>()
-            .stage::<CollectHIRStage>()
-            .stage::<TypeCheckStage>();
+            .stage(CollectNamesStage)
+            .stage(CollectHIRStage)
+            .stage(TypeCheckStage);
         self.hir = Some(
             pipeline
                 .dump()
                 .map(|(_ctx, hir)| hir.clone())
                 .map_err(|err| err.clone()),
         );
-        let pipeline = pipeline
-            .stage::<CollectSymbolsStage>()
-            .stage::<LowerStage>();
+        let pipeline = pipeline.stage(CollectSymbolsStage).stage(LowerStage);
         self.ir = Some(
             pipeline
                 .dump()
