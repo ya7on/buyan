@@ -231,6 +231,26 @@ impl LowerStage {
                         instruction.span,
                     ));
                 }
+                HIRInstruction::GetField {
+                    name,
+                    struct_id,
+                    field_index,
+                } => {
+                    let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
+                        errors.push(CompileError::SymbolNotFound {
+                            name: name.clone(),
+                            span: instruction.span,
+                        });
+                        continue;
+                    };
+                    basicblock.push(Spanned::new(
+                        IRInstruction::GetField {
+                            type_id,
+                            field_index: *field_index,
+                        },
+                        instruction.span,
+                    ));
+                }
                 HIRInstruction::Lambda {
                     stack_in: _,
                     stack_out: _,

@@ -32,6 +32,7 @@ where
         .then(
             field
                 .separated_by(just(TokenKind::Comma))
+                .at_least(1)
                 .collect::<Vec<_>>()
                 .delimited_by(
                     just(TokenKind::LeftParenthesis),

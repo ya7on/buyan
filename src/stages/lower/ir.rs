@@ -49,6 +49,7 @@ pub enum IRInstruction {
     CallIndirect,
     Pack { type_id: TypeId, field_count: usize },
     Unpack { type_id: TypeId },
+    GetField { type_id: TypeId, field_index: usize },
     Drop,
     Dup,
     Swap,

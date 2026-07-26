@@ -110,6 +110,25 @@ impl IRInterpreter {
                     assert_eq!(actual_type_id, *type_id, "struct type mismatch");
                     self.stack.extend(fields);
                 }
+                IRInstruction::GetField {
+                    type_id,
+                    field_index,
+                } => {
+                    let value = self.stack.pop().expect("stack underflow");
+                    let IRValue::Struct {
+                        type_id: actual_type_id,
+                        fields,
+                    } = value
+                    else {
+                        panic!("get field expects struct");
+                    };
+                    assert_eq!(actual_type_id, *type_id, "struct type mismatch");
+                    let field = fields
+                        .into_iter()
+                        .nth(*field_index)
+                        .expect("field index out of bounds");
+                    self.stack.push(field);
+                }
                 IRInstruction::Swap => {
                     let rhs = self.stack.pop().expect("stack underflow");
                     let lhs = self.stack.pop().expect("stack underflow");

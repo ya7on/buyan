@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    common::{CompileContext, Spanned},
+    common::{CompileContext, DottedPath, Spanned},
     error::CompileError,
     pipeline::Stage,
     stages::{
@@ -19,6 +19,11 @@ use crate::{
 #[derive(Default)]
 pub struct CollectHIRStage;
 
+enum CallSegment {
+    String(String),
+    Number(usize),
+}
+
 impl CollectHIRStage {
     fn analyze_instruction(
         module: &ASTModule,
@@ -34,22 +39,105 @@ impl CollectHIRStage {
                 ))),
             },
             ASTInstruction::Call(call) => {
-                let full_name = if call.len() == 1 {
-                    module.name.extend(call)
-                } else {
-                    call.clone()
-                };
-                let Some((symbol_id, SymbolKind::Word { .. })) = hir_ctx.lookup_and_get(&full_name)
-                else {
-                    return Err(vec![CompileError::SymbolNotFound {
-                        name: full_name.to_string(),
-                        span: instruction.span,
-                    }]);
-                };
-                Ok(HIRInstruction::Call {
-                    name: full_name.to_string(),
-                    symbol_id,
-                })
+                let segments = call
+                    .0
+                    .iter()
+                    .map(|segment| match segment.parse::<usize>() {
+                        Ok(number) => CallSegment::Number(number),
+                        Err(_) => CallSegment::String(segment.clone()),
+                    })
+                    .collect::<Vec<_>>();
+
+                match segments.as_slice() {
+                    [name_segments @ .., CallSegment::Number(field_index)] => {
+                        let Some(struct_name) = name_segments
+                            .iter()
+                            .map(|segment| match segment {
+                                CallSegment::String(name) => Some(name.clone()),
+                                CallSegment::Number(_) => None,
+                            })
+                            .collect::<Option<Vec<_>>>()
+                            .map(DottedPath)
+                        else {
+                            return Err(vec![CompileError::SymbolNotFound {
+                                name: call.to_string(),
+                                span: instruction.span,
+                            }]);
+                        };
+                        let resolved = (struct_name.len() == 1)
+                            .then(|| module.name.extend(&struct_name))
+                            .as_ref()
+                            .into_iter()
+                            .chain(std::iter::once(&struct_name))
+                            .find_map(|candidate| {
+                                hir_ctx
+                                    .lookup_and_get(candidate)
+                                    .map(|(id, symbol)| (id, symbol, candidate.to_string()))
+                            });
+                        let Some((struct_id, symbol, full_name)) = resolved else {
+                            return Err(vec![CompileError::SymbolNotFound {
+                                name: call.to_string(),
+                                span: instruction.span,
+                            }]);
+                        };
+                        let SymbolKind::Struct { name, fields } = symbol else {
+                            return Err(vec![CompileError::InvalidSymbol {
+                                name: full_name,
+                                span: instruction.span,
+                            }]);
+                        };
+                        if *field_index >= fields.len() {
+                            return Err(vec![CompileError::InvalidFieldIndex {
+                                name: name.clone(),
+                                index: *field_index,
+                                field_count: fields.len(),
+                                span: instruction.span,
+                            }]);
+                        }
+                        Ok(HIRInstruction::GetField {
+                            name: name.clone(),
+                            struct_id,
+                            field_index: *field_index,
+                        })
+                    }
+                    name_segments => {
+                        let Some(name) = name_segments
+                            .iter()
+                            .map(|segment| match segment {
+                                CallSegment::String(name) => Some(name.clone()),
+                                CallSegment::Number(_) => None,
+                            })
+                            .collect::<Option<Vec<_>>>()
+                            .map(DottedPath)
+                        else {
+                            return Err(vec![CompileError::SymbolNotFound {
+                                name: call.to_string(),
+                                span: instruction.span,
+                            }]);
+                        };
+                        let Some((symbol_id, full_name)) = (name.len() == 1)
+                            .then(|| module.name.extend(&name))
+                            .as_ref()
+                            .into_iter()
+                            .chain(std::iter::once(&name))
+                            .find_map(|candidate| match hir_ctx.lookup_and_get(candidate) {
+                                Some((id, SymbolKind::Word { .. })) => {
+                                    Some((id, candidate.to_string()))
+                                }
+                                _ => None,
+                            })
+                        else {
+                            return Err(vec![CompileError::SymbolNotFound {
+                                name: name.to_string(),
+                                span: instruction.span,
+                            }]);
+                        };
+                        Ok(HIRInstruction::Call {
+                            name: full_name,
+                            symbol_id,
+                        })
+                    }
+                }
             }
             ASTInstruction::Pack(name) | ASTInstruction::Unpack(name) => {
                 let Some(struct_id) = (name.len() == 1)

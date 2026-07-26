@@ -84,6 +84,31 @@ impl TypeCheckStage {
                     instruction.span,
                 )?;
             }
+            HIRInstruction::GetField {
+                name,
+                struct_id,
+                field_index,
+            } => {
+                let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(*struct_id) else {
+                    return Err(CompileError::SymbolNotFound {
+                        name: name.clone(),
+                        span: instruction.span,
+                    });
+                };
+                let Some(field) = fields.get(*field_index) else {
+                    return Err(CompileError::InvalidFieldIndex {
+                        name: name.clone(),
+                        index: *field_index,
+                        field_count: fields.len(),
+                        span: instruction.span,
+                    });
+                };
+                stack_analysis.apply_call(
+                    vec![HIRType::Struct(*struct_id)],
+                    vec![field.value.clone()],
+                    instruction.span,
+                )?;
+            }
             HIRInstruction::Lambda {
                 stack_in,
                 stack_out,

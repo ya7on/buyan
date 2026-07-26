@@ -79,6 +79,11 @@ pub enum HIRInstruction {
         name: String,
         struct_id: SymbolId,
     },
+    GetField {
+        name: String,
+        struct_id: SymbolId,
+        field_index: usize,
+    },
     Literal(HIRLiteral),
     Lambda {
         stack_in: Vec<HIRType>,

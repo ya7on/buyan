@@ -45,6 +45,12 @@ pub enum CompileError {
         name: String,
         span: Span,
     },
+    InvalidFieldIndex {
+        name: String,
+        index: usize,
+        field_count: usize,
+        span: Span,
+    },
     InvalidStack {
         label: String,
         span: Span,

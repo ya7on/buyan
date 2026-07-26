@@ -46,7 +46,22 @@ where
             .then_ignore(just(TokenKind::GreaterThan))
             .map(ASTInstruction::Unpack);
 
-        let call = path.map(ASTInstruction::Call);
+        let call_segment = select! {
+            TokenKind::Ident(name) => name,
+            TokenKind::LiteralNumber(number) => number.to_string(),
+        };
+        let call = select! {
+            TokenKind::Ident(name) => name,
+        }
+        .then(
+            just(TokenKind::Dot)
+                .ignore_then(call_segment)
+                .repeated()
+                .collect::<Vec<_>>(),
+        )
+        .map(|(first, rest)| {
+            ASTInstruction::Call(DottedPath(std::iter::once(first).chain(rest).collect()))
+        });
 
         let lambda = stack_effect_parser()
             .delimited_by(just(TokenKind::Pipe), just(TokenKind::Pipe))
