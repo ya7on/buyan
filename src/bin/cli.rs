@@ -39,7 +39,7 @@ fn print_errors(context: &CompileContext, diagnostics: &[Diagnostic]) {
         let title = diagnostic.message.title();
         let description = diagnostic.message.description();
         let help = format!(
-            "For more information, see DOCS#{}",
+            "For more information, see https://ya7on.github.io/buyan/codes.html#{}",
             code.to_ascii_lowercase()
         );
         let (kind, kind_name, color) = match diagnostic.kind {
