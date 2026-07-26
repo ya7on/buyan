@@ -36,27 +36,42 @@ fn print_errors(context: &CompileContext, diagnostics: &[Diagnostic]) {
 
     for diagnostic in diagnostics {
         let code = format!("B{:04}", diagnostic.code);
-        let Some(span) = diagnostic.message.span() else {
-            eprintln!("[{code}] {:?}", diagnostic.message);
-            continue;
+        let title = diagnostic.message.title();
+        let description = diagnostic.message.description();
+        let help = format!(
+            "For more information, see DOCS#{}",
+            code.to_ascii_lowercase()
+        );
+        let (kind, kind_name, color) = match diagnostic.kind {
+            DiagnosticKind::Error => (ReportKind::Error, "Error", Color::Red),
+            DiagnosticKind::Warning => (ReportKind::Warning, "Warning", Color::Yellow),
         };
-        let Some(source) = context.sources.get(&span.source_id) else {
-            eprintln!("[{code}] {:?}", diagnostic.message);
+        let source = diagnostic.message.span().and_then(|span| {
+            context
+                .sources
+                .get(&span.source_id)
+                .map(|source| (span, source))
+        });
+        let Some((span, source)) = source else {
+            eprintln!("[{code}] {kind_name}: {title}");
+            eprintln!("  {description}");
+            eprintln!("  Help: {help}");
             continue;
         };
 
         let path = source.path.display().to_string();
         let range = source.content[..span.start].chars().count()
             ..source.content[..span.end].chars().count();
-        let (kind, color) = match diagnostic.kind {
-            DiagnosticKind::Error => (ReportKind::Error, Color::Red),
-            DiagnosticKind::Warning => (ReportKind::Warning, Color::Yellow),
-        };
 
         if let Err(error) = Report::build(kind, (path.clone(), range.clone()))
             .with_code(code)
-            .with_message(format!("{:?}", diagnostic.message))
-            .with_label(Label::new((path, range)).with_color(color))
+            .with_message(title)
+            .with_label(
+                Label::new((path, range))
+                    .with_message(description)
+                    .with_color(color),
+            )
+            .with_help(help)
             .finish()
             .eprint(&mut cache)
         {

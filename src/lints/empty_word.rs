@@ -13,6 +13,7 @@ impl Lint for EmptyWord {
     fn check_word(&mut self, _: &HIRContext, word: &HIRWord, diagnostics: &mut Diagnostics) {
         if word.body.is_empty() && !word.attributes.contains(&HIRWordAttribute::BuiltIn) {
             diagnostics.emit_warning(DiagnosticMessage::EmptyWord {
+                name: word.signature.name.value.clone(),
                 span: word.signature.name.span,
             });
         }

@@ -97,6 +97,7 @@ pub enum DiagnosticMessage {
         actual_stack: Vec<String>,
     },
     EmptyWord {
+        name: String,
         span: Span,
     },
     UnusedImport {
@@ -135,7 +136,7 @@ impl DiagnosticMessage {
 
     pub fn span(&self) -> Option<Span> {
         match self {
-            Self::EmptyWord { span }
+            Self::EmptyWord { span, .. }
             | Self::UnusedImport { span, .. }
             | Self::ImportError { span, .. }
             | Self::UnexpectedToken { span }
@@ -148,6 +149,79 @@ impl DiagnosticMessage {
             | Self::InvalidFieldIndex { span, .. }
             | Self::InvalidStack { span, .. } => Some(*span),
             Self::Unknown { .. } | Self::FileNotFound { .. } => None,
+        }
+    }
+
+    pub fn title(&self) -> &'static str {
+        match self {
+            Self::Unknown { .. } => "Unknown Error",
+            Self::FileNotFound { .. } => "File Not Found",
+            Self::ImportError { .. } => "Import Error",
+            Self::UnexpectedToken { .. } => "Unexpected Token",
+            Self::ParseError { .. } => "Parse Error",
+            Self::InvalidAttribute { .. } => "Invalid Attribute",
+            Self::SymbolAlreadyExists { .. } => "Symbol Already Exists",
+            Self::SymbolNotFound { .. } => "Symbol Not Found",
+            Self::InvalidSymbol { .. } => "Invalid Symbol",
+            Self::RecursiveStruct { .. } => "Recursive Struct",
+            Self::InvalidFieldIndex { .. } => "Invalid Field Index",
+            Self::InvalidStack { .. } => "Invalid Stack",
+            Self::EmptyWord { .. } => "Empty Word",
+            Self::UnusedImport { .. } => "Unused Import",
+        }
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            Self::Unknown { label } => label.clone(),
+            Self::FileNotFound { path } => format!("file '{path}' could not be found"),
+            Self::ImportError { path, .. } => {
+                format!("module '{path}' could not be imported")
+            }
+            Self::UnexpectedToken { .. } => "this token is not valid here".to_string(),
+            Self::ParseError { label, .. } if label.is_empty() => {
+                "the syntax is not valid here".to_string()
+            }
+            Self::ParseError { label, .. } => format!("expected {}", label.join(" or ")),
+            Self::InvalidAttribute { name, .. } => {
+                format!("attribute '{name}' is not supported")
+            }
+            Self::SymbolAlreadyExists { name, .. } => {
+                format!("symbol '{name}' is already defined")
+            }
+            Self::SymbolNotFound { name, .. } => {
+                format!("could not find symbol '{name}'")
+            }
+            Self::InvalidSymbol { name, .. } => {
+                format!("symbol '{name}' cannot be used here")
+            }
+            Self::RecursiveStruct { name, .. } => {
+                format!("struct '{name}' contains itself recursively")
+            }
+            Self::InvalidFieldIndex {
+                name,
+                index,
+                field_count,
+                ..
+            } => format!(
+                "field index {index} is out of bounds for '{name}', which has {field_count} fields"
+            ),
+            Self::InvalidStack {
+                label,
+                expected_stack,
+                actual_stack,
+                ..
+            } => format!(
+                "{label}; expected stack [{}], found [{}]",
+                expected_stack.join(", "),
+                actual_stack.join(", ")
+            ),
+            Self::EmptyWord { name, .. } => {
+                format!("word '{name}' has an empty body")
+            }
+            Self::UnusedImport { name, .. } => {
+                format!("import '{name}' is never used")
+            }
         }
     }
 }
