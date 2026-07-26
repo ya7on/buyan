@@ -22,6 +22,7 @@ pub enum IRValue {
 impl IRValue {
     fn from_constant(constant: &IRConstant) -> Self {
         match constant {
+            IRConstant::Bool(value) => Self::Bool(*value),
             IRConstant::U8(value) => Self::U8(*value),
             IRConstant::String(value) => Self::String(value.clone()),
         }

@@ -81,6 +81,9 @@ pub enum TokenKind {
     LiteralNumber(usize),
     #[regex(r#""([^"\\]|\\.)*""#, |lex| unescape_string_literal(lex.slice()))]
     LiteralString(String),
+    #[token("true", |_| true)]
+    #[token("false", |_| false)]
+    LiteralBool(bool),
 
     #[token("import")]
     KeywordImport,

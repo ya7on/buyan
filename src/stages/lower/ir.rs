@@ -37,6 +37,7 @@ pub enum IRTerminator {
 
 #[derive(Debug, Clone)]
 pub enum IRConstant {
+    Bool(bool),
     U8(u8),
     String(String),
 }

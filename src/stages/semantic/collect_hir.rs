@@ -33,6 +33,7 @@ impl CollectHIRStage {
     ) -> Result<HIRInstruction, DiagnosticMessage> {
         match &instruction.value {
             ASTInstruction::Literal(literal) => match literal {
+                ASTLiteral::Bool(value) => Ok(HIRInstruction::Literal(HIRLiteral::Bool(*value))),
                 ASTLiteral::U8(value) => Ok(HIRInstruction::Literal(HIRLiteral::U8(*value))),
                 ASTLiteral::String(value) => Ok(HIRInstruction::Literal(HIRLiteral::String(
                     value.to_owned(),

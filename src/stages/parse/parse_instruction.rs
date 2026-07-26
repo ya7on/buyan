@@ -24,6 +24,7 @@ where
 {
     recursive(|instr| {
         let literal = select! {
+            TokenKind::LiteralBool(value) => ASTInstruction::Literal(ASTLiteral::Bool(value)),
             TokenKind::LiteralString(value) => ASTInstruction::Literal(ASTLiteral::String(value)),
             TokenKind::LiteralU8(value) => ASTInstruction::Literal(ASTLiteral::U8(value)),
         };

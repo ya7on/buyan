@@ -64,6 +64,7 @@ pub enum HIRType {
 
 #[derive(Debug, Clone)]
 pub enum HIRLiteral {
+    Bool(bool),
     U8(u8),
     String(String),
 }

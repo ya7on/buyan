@@ -60,6 +60,7 @@ pub enum ASTStackEffectItem {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ASTLiteral {
+    Bool(bool),
     String(String),
     U8(u8),
 }

@@ -46,6 +46,7 @@ fn dump_instruction(buf: &mut String, instruction: &ASTInstruction) -> Result<()
         ASTInstruction::Call(name) => write!(buf, "{name}")?,
         ASTInstruction::Pack(name) => write!(buf, ">{name}")?,
         ASTInstruction::Unpack(name) => write!(buf, "{name}>")?,
+        ASTInstruction::Literal(ASTLiteral::Bool(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::String(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::U8(value)) => write!(buf, "{value}")?,
         ASTInstruction::Lambda { stack_effect, body } => {

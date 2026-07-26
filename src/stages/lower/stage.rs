@@ -178,6 +178,14 @@ impl LowerStage {
                     }
                 }
                 HIRInstruction::Literal(literal) => match literal {
+                    HIRLiteral::Bool(value) => {
+                        basicblock.push(Spanned::new(
+                            IRInstruction::PushConstant {
+                                value: IRConstant::Bool(*value),
+                            },
+                            instruction.span,
+                        ));
+                    }
                     HIRLiteral::U8(value) => {
                         basicblock.push(Spanned::new(
                             IRInstruction::PushConstant {

@@ -39,6 +39,15 @@ impl TypeCheckStage {
                 )?;
             }
             HIRInstruction::Literal(literal) => match literal {
+                HIRLiteral::Bool(_) => {
+                    let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse("bool")) else {
+                        return Err(DiagnosticMessage::SymbolNotFound {
+                            name: "bool".to_string(),
+                            span: instruction.span,
+                        });
+                    };
+                    stack_analysis.push(HIRType::BuiltIn(symbol_id));
+                }
                 HIRLiteral::U8(_) => {
                     let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse("u8")) else {
                         return Err(DiagnosticMessage::SymbolNotFound {
