@@ -1,6 +1,6 @@
 use crate::{
     common::{CompileContext, Span, Spanned},
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
         lower::{
@@ -41,7 +41,7 @@ impl LowerStage {
         word: &Spanned<HIRWord>,
         lambda_words: &mut Vec<Spanned<IRWord>>,
         base_word_count: usize,
-    ) -> Result<Spanned<IRWord>, Vec<CompileError>> {
+    ) -> Result<Spanned<IRWord>, Vec<DiagnosticMessage>> {
         Ok(Spanned::new(
             Self::lower_ir_word(
                 ir_ctx,
@@ -62,7 +62,7 @@ impl LowerStage {
         span: Span,
         lambda_words: &mut Vec<Spanned<IRWord>>,
         base_word_count: usize,
-    ) -> Result<IRWord, Vec<CompileError>> {
+    ) -> Result<IRWord, Vec<DiagnosticMessage>> {
         let mut errors = Vec::new();
         let mut blocks = Vec::new();
         let mut basicblock = BasicBlockBuilder::default();
@@ -70,7 +70,7 @@ impl LowerStage {
             match &instruction.value {
                 HIRInstruction::Call { name, symbol_id } => {
                     let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
-                        errors.push(CompileError::SymbolNotFound {
+                        errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
                         });
@@ -78,7 +78,7 @@ impl LowerStage {
                     };
                     let Some(word_name) = ir_ctx.get_word(word_id).map(|word| word.name.as_str())
                     else {
-                        errors.push(CompileError::SymbolNotFound {
+                        errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
                         });
@@ -197,14 +197,14 @@ impl LowerStage {
                 },
                 HIRInstruction::Pack { name, struct_id } => {
                     let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
-                        errors.push(CompileError::SymbolNotFound {
+                        errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
                         });
                         continue;
                     };
                     let Some(type_info) = ir_ctx.get_type(type_id) else {
-                        errors.push(CompileError::SymbolNotFound {
+                        errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
                         });
@@ -220,7 +220,7 @@ impl LowerStage {
                 }
                 HIRInstruction::Unpack { name, struct_id } => {
                     let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
-                        errors.push(CompileError::SymbolNotFound {
+                        errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
                         });
@@ -237,7 +237,7 @@ impl LowerStage {
                     field_index,
                 } => {
                     let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
-                        errors.push(CompileError::SymbolNotFound {
+                        errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
                         });

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use buyan::error::CompileError;
+use buyan::error::{DiagnosticKind, DiagnosticMessage};
 
 use crate::common::executor::TestExecutor;
 
@@ -14,7 +14,7 @@ impl TestExecutor {
         self
     }
 
-    pub fn assert_hir_err(self, pred: impl Fn(&CompileError) -> bool) -> Self {
+    pub fn assert_hir_err(self, pred: impl Fn(&DiagnosticMessage) -> bool) -> Self {
         assert!(self.hir.is_some());
         assert!(self.hir.as_ref().unwrap().is_err());
         assert!(
@@ -24,6 +24,8 @@ impl TestExecutor {
                 .as_ref()
                 .unwrap_err()
                 .iter()
+                .filter(|diagnostic| diagnostic.kind == DiagnosticKind::Error)
+                .map(|diagnostic| &diagnostic.message)
                 .any(pred),
             "error in hir not found {:?}",
             self.hir

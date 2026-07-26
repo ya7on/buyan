@@ -1,25 +1,50 @@
 use crate::common::Span;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum DiagnosticKind {
+    Error,
+    Warning,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Diagnostic {
+    pub kind: DiagnosticKind,
+    pub code: u16,
+    pub message: DiagnosticMessage,
+}
+
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    pub errors: Vec<CompileError>,
+    pub items: Vec<Diagnostic>,
     pub fatal: bool,
 }
 
 impl Diagnostics {
-    pub fn emit_fatal(&mut self, error: CompileError) {
+    pub fn emit_fatal(&mut self, message: DiagnosticMessage) {
         self.fatal = true;
-        self.errors.push(error);
+        self.items.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            code: message.code(),
+            message,
+        });
+    }
+
+    pub fn emit_warning(&mut self, message: DiagnosticMessage) {
+        self.items.push(Diagnostic {
+            kind: DiagnosticKind::Warning,
+            code: message.code(),
+            message,
+        });
     }
 
     pub fn append(&mut self, mut other: Self) {
         self.fatal |= other.fatal;
-        self.errors.append(&mut other.errors);
+        self.items.append(&mut other.items);
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum CompileError {
+pub enum DiagnosticMessage {
     Unknown {
         label: String,
     },
@@ -71,9 +96,12 @@ pub enum CompileError {
         expected_stack: Vec<String>,
         actual_stack: Vec<String>,
     },
+    EmptyWord {
+        span: Span,
+    },
 }
 
-impl Default for CompileError {
+impl Default for DiagnosticMessage {
     fn default() -> Self {
         Self::Unknown {
             label: "Unknown".to_string(),
@@ -81,10 +109,29 @@ impl Default for CompileError {
     }
 }
 
-impl CompileError {
+impl DiagnosticMessage {
+    pub fn code(&self) -> u16 {
+        match self {
+            Self::Unknown { .. } => 1,
+            Self::FileNotFound { .. } => 2,
+            Self::ImportError { .. } => 3,
+            Self::UnexpectedToken { .. } => 4,
+            Self::ParseError { .. } => 5,
+            Self::InvalidAttribute { .. } => 6,
+            Self::SymbolAlreadyExists { .. } => 7,
+            Self::SymbolNotFound { .. } => 8,
+            Self::InvalidSymbol { .. } => 9,
+            Self::RecursiveStruct { .. } => 10,
+            Self::InvalidFieldIndex { .. } => 11,
+            Self::InvalidStack { .. } => 12,
+            Self::EmptyWord { .. } => 13,
+        }
+    }
+
     pub fn span(&self) -> Option<Span> {
         match self {
-            Self::ImportError { span, .. }
+            Self::EmptyWord { span }
+            | Self::ImportError { span, .. }
             | Self::UnexpectedToken { span }
             | Self::ParseError { span, .. }
             | Self::InvalidAttribute { span, .. }

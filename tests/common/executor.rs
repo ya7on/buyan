@@ -4,7 +4,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use buyan::{
     common::SourceSpan,
-    error::CompileError,
+    error::{Diagnostic, DiagnosticMessage},
     fs::FileSystem,
     pipeline::PipelineBuilder,
     stages::{
@@ -21,8 +21,8 @@ use buyan::{
     },
 };
 
-type LexerResult = Result<Vec<(TokenKind, SourceSpan)>, Vec<CompileError>>;
-type ParserResult = Result<ASTModule, Vec<CompileError>>;
+type LexerResult = Result<Vec<(TokenKind, SourceSpan)>, Vec<DiagnosticMessage>>;
+type ParserResult = Result<ASTModule, Vec<DiagnosticMessage>>;
 
 #[derive(Default)]
 pub struct TestFilesystem {
@@ -44,9 +44,9 @@ impl FileSystem for TestFilesystem {
 #[derive(Default)]
 pub struct TestExecutor {
     pub inputs: HashMap<String, String>,
-    pub ast: Option<Result<ASTProgram, Vec<CompileError>>>,
-    pub hir: Option<Result<HIRProgram, Vec<CompileError>>>,
-    pub ir: Option<Result<IRProgram, Vec<CompileError>>>,
+    pub ast: Option<Result<ASTProgram, Vec<Diagnostic>>>,
+    pub hir: Option<Result<HIRProgram, Vec<Diagnostic>>>,
+    pub ir: Option<Result<IRProgram, Vec<Diagnostic>>>,
 }
 
 impl TestExecutor {

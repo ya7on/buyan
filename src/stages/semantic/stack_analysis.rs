@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::Span,
-    error::CompileError,
+    error::DiagnosticMessage,
     stages::semantic::{context::SymbolId, hir::HIRType},
 };
 
@@ -39,11 +39,11 @@ impl CallAnalysis {
         }
     }
 
-    fn unify_builtin(&mut self, top: HIRType, expected: SymbolId) -> Result<(), CompileError> {
+    fn unify_builtin(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
         match top {
             HIRType::BuiltIn(symbol_id) => {
                 if symbol_id != expected {
-                    return Err(CompileError::InvalidStack {
+                    return Err(DiagnosticMessage::InvalidStack {
                         label: "type mismatch".to_string(),
                         expected_stack: self
                             .expected_stack_in
@@ -62,7 +62,7 @@ impl CallAnalysis {
             // HIRType::TypeVar(symbol_id) => {
             //     if let Some(unified) = self.substitution.type_vars.get(&symbol_id) {
             //         if unified != &top {
-            //             return Err(CompileError::InvalidStack {
+            //             return Err(DiagnosticMessage::InvalidStack {
             //                 label: "type mismatch".to_string(),
             //                 expected_stack: self
             //                     .expected_stack_in
@@ -84,7 +84,7 @@ impl CallAnalysis {
             //     }
             // }
             _ => {
-                return Err(CompileError::InvalidStack {
+                return Err(DiagnosticMessage::InvalidStack {
                     label: "type mismatch".to_string(),
                     expected_stack: self
                         .expected_stack_in
@@ -104,9 +104,9 @@ impl CallAnalysis {
         Ok(())
     }
 
-    fn unify_struct(&mut self, top: HIRType, expected: SymbolId) -> Result<(), CompileError> {
+    fn unify_struct(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
         if top != HIRType::Struct(expected) {
-            return Err(CompileError::InvalidStack {
+            return Err(DiagnosticMessage::InvalidStack {
                 label: "type mismatch".to_string(),
                 expected_stack: self
                     .expected_stack_in
@@ -129,13 +129,13 @@ impl CallAnalysis {
         top: HIRType,
         expected_stack_in: &[HIRType],
         expected_stack_out: &[HIRType],
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         let HIRType::Lambda {
             stack_in: actual_stack_in,
             stack_out: actual_stack_out,
         } = top
         else {
-            return Err(CompileError::InvalidStack {
+            return Err(DiagnosticMessage::InvalidStack {
                 label: "type mismatch".to_string(),
                 expected_stack: self
                     .expected_stack_in
@@ -155,10 +155,10 @@ impl CallAnalysis {
         Ok(())
     }
 
-    fn unify_typevar(&mut self, top: HIRType, expected: SymbolId) -> Result<(), CompileError> {
+    fn unify_typevar(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
         if let Some(unified) = self.substitution.type_vars.get(&expected) {
             if unified != &top {
-                return Err(CompileError::InvalidStack {
+                return Err(DiagnosticMessage::InvalidStack {
                     label: "type mismatch".to_string(),
                     expected_stack: self
                         .expected_stack_in
@@ -183,10 +183,10 @@ impl CallAnalysis {
         &mut self,
         stack: &[HIRType],
         symbol_id: SymbolId,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         if let Some(unified) = self.substitution.stack_vars.get(&symbol_id) {
             if unified != stack {
-                return Err(CompileError::InvalidStack {
+                return Err(DiagnosticMessage::InvalidStack {
                     label: "stack mismatch".to_string(),
                     expected_stack: self
                         .expected_stack_in
@@ -209,7 +209,11 @@ impl CallAnalysis {
         Ok(())
     }
 
-    fn unify_type_pair(&mut self, actual: HIRType, expected: HIRType) -> Result<(), CompileError> {
+    fn unify_type_pair(
+        &mut self,
+        actual: HIRType,
+        expected: HIRType,
+    ) -> Result<(), DiagnosticMessage> {
         match expected {
             HIRType::BuiltIn(symbol_id) => {
                 self.unify_builtin(actual, symbol_id)?;
@@ -227,7 +231,7 @@ impl CallAnalysis {
                 self.unify_lambda(actual, &stack_in, &stack_out)?;
             }
             HIRType::StackVar(_) => {
-                return Err(CompileError::InvalidStack {
+                return Err(DiagnosticMessage::InvalidStack {
                     label: "stack underflow".to_string(),
                     expected_stack: self
                         .expected_stack_in
@@ -250,13 +254,13 @@ impl CallAnalysis {
         &mut self,
         actual_stack: &mut Vec<HIRType>,
         expected: HIRType,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         if let HIRType::StackVar(symbol_id) = expected {
             let rest = std::mem::take(actual_stack);
             self.unify_stackvar(&rest, symbol_id)?;
         } else {
             let Some(top) = actual_stack.pop() else {
-                return Err(CompileError::InvalidStack {
+                return Err(DiagnosticMessage::InvalidStack {
                     label: "stack underflow".to_string(),
                     expected_stack: self
                         .expected_stack_in
@@ -280,7 +284,7 @@ impl CallAnalysis {
         &mut self,
         actual: Vec<HIRType>,
         expected: Vec<HIRType>,
-    ) -> Result<Vec<HIRType>, CompileError> {
+    ) -> Result<Vec<HIRType>, DiagnosticMessage> {
         let mut actual = actual;
         for ty in expected.iter().rev() {
             self.unify_type(actual.as_mut(), ty.clone())?;
@@ -292,11 +296,11 @@ impl CallAnalysis {
         &mut self,
         actual_stack: Vec<HIRType>,
         expected_stack: Vec<HIRType>,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         let rest = self.unify_stack_pair(actual_stack, expected_stack.clone())?;
 
         if !rest.is_empty() {
-            return Err(CompileError::InvalidStack {
+            return Err(DiagnosticMessage::InvalidStack {
                 label: "stack mismatch".to_string(),
                 expected_stack: expected_stack
                     .iter()
@@ -310,17 +314,17 @@ impl CallAnalysis {
         Ok(())
     }
 
-    fn unify(&mut self) -> Result<(), CompileError> {
+    fn unify(&mut self) -> Result<(), DiagnosticMessage> {
         self.stack = self.unify_stack_pair(self.stack.clone(), self.expected_stack_in.clone())?;
         Ok(())
     }
 
-    fn resolve_typevar(&self, symbol_id: SymbolId) -> Result<HIRType, CompileError> {
+    fn resolve_typevar(&self, symbol_id: SymbolId) -> Result<HIRType, DiagnosticMessage> {
         self.substitution
             .type_vars
             .get(&symbol_id)
             .cloned()
-            .ok_or_else(|| CompileError::InvalidStack {
+            .ok_or_else(|| DiagnosticMessage::InvalidStack {
                 label: "cannot infer type variable".to_string(),
                 expected_stack: self
                     .expected_stack_out
@@ -336,12 +340,12 @@ impl CallAnalysis {
             })
     }
 
-    fn resolve_stackvar(&self, symbol_id: SymbolId) -> Result<Vec<HIRType>, CompileError> {
+    fn resolve_stackvar(&self, symbol_id: SymbolId) -> Result<Vec<HIRType>, DiagnosticMessage> {
         self.substitution
             .stack_vars
             .get(&symbol_id)
             .cloned()
-            .ok_or_else(|| CompileError::InvalidStack {
+            .ok_or_else(|| DiagnosticMessage::InvalidStack {
                 label: "cannot infer stack variable".to_string(),
                 expected_stack: self
                     .expected_stack_out
@@ -357,7 +361,7 @@ impl CallAnalysis {
             })
     }
 
-    fn substitute_type_value(&self, ty: &HIRType) -> Result<HIRType, CompileError> {
+    fn substitute_type_value(&self, ty: &HIRType) -> Result<HIRType, DiagnosticMessage> {
         match ty {
             HIRType::BuiltIn(symbol_id) => Ok(HIRType::BuiltIn(*symbol_id)),
             HIRType::Struct(symbol_id) => Ok(HIRType::Struct(*symbol_id)),
@@ -372,7 +376,7 @@ impl CallAnalysis {
                 stack_out: self.substitute_stack_value(stack_out)?,
             }),
 
-            HIRType::StackVar(_) => Err(CompileError::InvalidStack {
+            HIRType::StackVar(_) => Err(DiagnosticMessage::InvalidStack {
                 label: "stack variable cannot be substituted as a single type".to_string(),
                 expected_stack: self
                     .expected_stack_out
@@ -389,7 +393,7 @@ impl CallAnalysis {
         }
     }
 
-    fn substitute_stack_value(&self, stack: &[HIRType]) -> Result<Vec<HIRType>, CompileError> {
+    fn substitute_stack_value(&self, stack: &[HIRType]) -> Result<Vec<HIRType>, DiagnosticMessage> {
         let mut result = Vec::new();
 
         for ty in stack {
@@ -409,7 +413,7 @@ impl CallAnalysis {
         Ok(result)
     }
 
-    fn substitute(&mut self) -> Result<(), CompileError> {
+    fn substitute(&mut self) -> Result<(), DiagnosticMessage> {
         let substituted = self.substitute_stack_value(&self.expected_stack_out)?;
 
         for ty in substituted {
@@ -419,7 +423,7 @@ impl CallAnalysis {
         Ok(())
     }
 
-    pub fn apply(&mut self) -> Result<Vec<HIRType>, CompileError> {
+    pub fn apply(&mut self) -> Result<Vec<HIRType>, DiagnosticMessage> {
         self.unify()?;
         self.substitute()?;
         Ok(self.stack.clone())
@@ -447,7 +451,7 @@ impl StackAnalysis {
         stack_in: Vec<HIRType>,
         stack_out: Vec<HIRType>,
         span: Span,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         let mut call_analysis = CallAnalysis::new(self.stack.clone(), stack_in, stack_out, span);
         self.stack = call_analysis.apply()?;
         Ok(())
@@ -457,9 +461,9 @@ impl StackAnalysis {
         &self,
         expected_stack: Vec<HIRType>,
         span: Span,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         if self.stack != expected_stack {
-            return Err(CompileError::InvalidStack {
+            return Err(DiagnosticMessage::InvalidStack {
                 label: "stack mismatch".to_string(),
                 expected_stack: expected_stack
                     .iter()

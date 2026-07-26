@@ -1,4 +1,4 @@
-use buyan::error::CompileError;
+use buyan::error::{DiagnosticKind, DiagnosticMessage};
 
 use crate::common::executor::TestExecutor;
 
@@ -104,7 +104,7 @@ fn symbols() {
     TestExecutor::input(("app.by", "module app; def main(Missing -- Missing) end"))
         .check()
         .assert_parse_ok()
-        .assert_hir_err(|error| matches!(error, CompileError::SymbolNotFound { .. }));
+        .assert_hir_err(|error| matches!(error, DiagnosticMessage::SymbolNotFound { .. }));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn cycle() {
     TestExecutor::input(("app.by", "module app; struct A(B); struct B(A);"))
         .check()
         .assert_parse_ok()
-        .assert_hir_err(|error| matches!(error, CompileError::RecursiveStruct { .. }));
+        .assert_hir_err(|error| matches!(error, DiagnosticMessage::RecursiveStruct { .. }));
 }
 
 #[test]
@@ -132,7 +132,10 @@ fn types() {
     assert_eq!(
         errors
             .iter()
-            .filter(|error| matches!(error, CompileError::InvalidStack { .. }))
+            .filter(|diagnostic| {
+                diagnostic.kind == DiagnosticKind::Error
+                    && matches!(&diagnostic.message, DiagnosticMessage::InvalidStack { .. })
+            })
             .count(),
         3
     );

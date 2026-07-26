@@ -1,6 +1,6 @@
 use crate::{
     common::{CompileContext, DottedPath, Spanned},
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::semantic::{
         context::{HIRContext, SymbolKind},
@@ -17,7 +17,7 @@ impl TypeCheckStage {
         hir_ctx: &HIRContext,
         instruction: &Spanned<HIRInstruction>,
         stack_analysis: &mut StackAnalysis,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DiagnosticMessage> {
         match &instruction.value {
             HIRInstruction::Call { name, symbol_id } => {
                 let Some(SymbolKind::Word {
@@ -27,7 +27,7 @@ impl TypeCheckStage {
                     stack_out,
                 }) = hir_ctx.get(*symbol_id)
                 else {
-                    return Err(CompileError::SymbolNotFound {
+                    return Err(DiagnosticMessage::SymbolNotFound {
                         name: name.to_string(),
                         span: instruction.span,
                     });
@@ -41,7 +41,7 @@ impl TypeCheckStage {
             HIRInstruction::Literal(literal) => match literal {
                 HIRLiteral::U8(_) => {
                     let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse("u8")) else {
-                        return Err(CompileError::SymbolNotFound {
+                        return Err(DiagnosticMessage::SymbolNotFound {
                             name: "u8".to_string(),
                             span: instruction.span,
                         });
@@ -50,7 +50,7 @@ impl TypeCheckStage {
                 }
                 HIRLiteral::String(_) => {
                     let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse("string")) else {
-                        return Err(CompileError::SymbolNotFound {
+                        return Err(DiagnosticMessage::SymbolNotFound {
                             name: "string".to_string(),
                             span: instruction.span,
                         });
@@ -60,7 +60,7 @@ impl TypeCheckStage {
             },
             HIRInstruction::Pack { name, struct_id } => {
                 let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(*struct_id) else {
-                    return Err(CompileError::SymbolNotFound {
+                    return Err(DiagnosticMessage::SymbolNotFound {
                         name: name.clone(),
                         span: instruction.span,
                     });
@@ -73,7 +73,7 @@ impl TypeCheckStage {
             }
             HIRInstruction::Unpack { name, struct_id } => {
                 let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(*struct_id) else {
-                    return Err(CompileError::SymbolNotFound {
+                    return Err(DiagnosticMessage::SymbolNotFound {
                         name: name.clone(),
                         span: instruction.span,
                     });
@@ -90,13 +90,13 @@ impl TypeCheckStage {
                 field_index,
             } => {
                 let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(*struct_id) else {
-                    return Err(CompileError::SymbolNotFound {
+                    return Err(DiagnosticMessage::SymbolNotFound {
                         name: name.clone(),
                         span: instruction.span,
                     });
                 };
                 let Some(field) = fields.get(*field_index) else {
-                    return Err(CompileError::InvalidFieldIndex {
+                    return Err(DiagnosticMessage::InvalidFieldIndex {
                         name: name.clone(),
                         index: *field_index,
                         field_count: fields.len(),
@@ -133,7 +133,7 @@ impl TypeCheckStage {
         Ok(())
     }
 
-    fn type_check_word(word: &HIRWord, hir_ctx: &HIRContext) -> Result<(), CompileError> {
+    fn type_check_word(word: &HIRWord, hir_ctx: &HIRContext) -> Result<(), DiagnosticMessage> {
         let mut stack_analysis = StackAnalysis::new(
             word.signature
                 .stack_in

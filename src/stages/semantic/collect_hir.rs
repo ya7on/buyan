@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::{CompileContext, DottedPath, Spanned},
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
         parse::ast::{ASTInstruction, ASTLiteral, ASTModule, ASTProgram, ASTStruct, ASTWord},
@@ -30,7 +30,7 @@ impl CollectHIRStage {
         word: &ASTWord,
         instruction: &Spanned<ASTInstruction>,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRInstruction, CompileError> {
+    ) -> Result<HIRInstruction, DiagnosticMessage> {
         match &instruction.value {
             ASTInstruction::Literal(literal) => match literal {
                 ASTLiteral::U8(value) => Ok(HIRInstruction::Literal(HIRLiteral::U8(*value))),
@@ -59,7 +59,7 @@ impl CollectHIRStage {
                             .collect::<Option<Vec<_>>>()
                             .map(DottedPath)
                         else {
-                            return Err(CompileError::SymbolNotFound {
+                            return Err(DiagnosticMessage::SymbolNotFound {
                                 name: call.to_string(),
                                 span: instruction.span,
                             });
@@ -75,19 +75,19 @@ impl CollectHIRStage {
                                     .map(|(id, symbol)| (id, symbol, candidate.to_string()))
                             });
                         let Some((struct_id, symbol, full_name)) = resolved else {
-                            return Err(CompileError::SymbolNotFound {
+                            return Err(DiagnosticMessage::SymbolNotFound {
                                 name: call.to_string(),
                                 span: instruction.span,
                             });
                         };
                         let SymbolKind::Struct { name, fields } = symbol else {
-                            return Err(CompileError::InvalidSymbol {
+                            return Err(DiagnosticMessage::InvalidSymbol {
                                 name: full_name,
                                 span: instruction.span,
                             });
                         };
                         if *field_index >= fields.len() {
-                            return Err(CompileError::InvalidFieldIndex {
+                            return Err(DiagnosticMessage::InvalidFieldIndex {
                                 name: name.clone(),
                                 index: *field_index,
                                 field_count: fields.len(),
@@ -110,7 +110,7 @@ impl CollectHIRStage {
                             .collect::<Option<Vec<_>>>()
                             .map(DottedPath)
                         else {
-                            return Err(CompileError::SymbolNotFound {
+                            return Err(DiagnosticMessage::SymbolNotFound {
                                 name: call.to_string(),
                                 span: instruction.span,
                             });
@@ -127,7 +127,7 @@ impl CollectHIRStage {
                                 _ => None,
                             })
                         else {
-                            return Err(CompileError::SymbolNotFound {
+                            return Err(DiagnosticMessage::SymbolNotFound {
                                 name: name.to_string(),
                                 span: instruction.span,
                             });
@@ -150,7 +150,7 @@ impl CollectHIRStage {
                         _ => None,
                     })
                 else {
-                    return Err(CompileError::SymbolNotFound {
+                    return Err(DiagnosticMessage::SymbolNotFound {
                         name: name.to_string(),
                         span: instruction.span,
                     });
@@ -204,11 +204,11 @@ impl CollectHIRStage {
         module: &ASTModule,
         item: &ASTStruct,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRStruct, CompileError> {
+    ) -> Result<HIRStruct, DiagnosticMessage> {
         let fullpath = module.name.append(item.name.as_str());
         let Some((id, SymbolKind::Struct { fields, .. })) = hir_ctx.lookup_and_get(&fullpath)
         else {
-            return Err(CompileError::SymbolNotFound {
+            return Err(DiagnosticMessage::SymbolNotFound {
                 name: fullpath.to_string(),
                 span: item.name.span,
             });
@@ -225,13 +225,13 @@ impl CollectHIRStage {
         is_root_module: bool,
         word: &ASTWord,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRWord, CompileError> {
+    ) -> Result<HIRWord, DiagnosticMessage> {
         let mut attributes = Vec::with_capacity(word.attributes.len());
         for attribute in &word.attributes {
             match attribute.value.as_str() {
                 "builtin" => attributes.push(HIRWordAttribute::BuiltIn),
                 _ => {
-                    return Err(CompileError::InvalidAttribute {
+                    return Err(DiagnosticMessage::InvalidAttribute {
                         name: attribute.value.clone(),
                         span: attribute.span,
                     });
@@ -240,15 +240,16 @@ impl CollectHIRStage {
         }
 
         let fullpath = module.name.append(&word.name);
-        let word_id = hir_ctx
-            .lookup(&fullpath)
-            .ok_or_else(|| CompileError::SymbolNotFound {
-                name: word.name.to_string(),
-                span: word.name.span,
-            })?;
+        let word_id =
+            hir_ctx
+                .lookup(&fullpath)
+                .ok_or_else(|| DiagnosticMessage::SymbolNotFound {
+                    name: word.name.to_string(),
+                    span: word.name.span,
+                })?;
         let symbol = hir_ctx
             .get(word_id)
-            .ok_or_else(|| CompileError::SymbolNotFound {
+            .ok_or_else(|| DiagnosticMessage::SymbolNotFound {
                 name: word.name.to_string(),
                 span: word.name.span,
             })?;
@@ -259,7 +260,7 @@ impl CollectHIRStage {
             stack_out,
         } = symbol
         else {
-            return Err(CompileError::InvalidSymbol {
+            return Err(DiagnosticMessage::InvalidSymbol {
                 name: word.name.to_string(),
                 span: word.name.span,
             });
@@ -295,7 +296,7 @@ impl CollectHIRStage {
         diagnostics: &mut Diagnostics,
     ) -> Option<HIRModule> {
         let Some(module_id) = hir_ctx.lookup(&module.name) else {
-            diagnostics.emit_fatal(CompileError::SymbolNotFound {
+            diagnostics.emit_fatal(DiagnosticMessage::SymbolNotFound {
                 name: module.name.to_string(),
                 span: module.name.span,
             });
@@ -305,7 +306,7 @@ impl CollectHIRStage {
         let mut imports = vec![];
         for import in &module.imports {
             let Some(import_id) = hir_ctx.lookup(&import.value) else {
-                diagnostics.emit_fatal(CompileError::SymbolNotFound {
+                diagnostics.emit_fatal(DiagnosticMessage::SymbolNotFound {
                     name: import.value.to_string(),
                     span: import.span,
                 });

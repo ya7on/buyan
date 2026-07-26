@@ -1,4 +1,4 @@
-use buyan::error::CompileError;
+use buyan::error::DiagnosticMessage;
 
 use crate::common::executor::TestExecutor;
 
@@ -73,19 +73,19 @@ fn lambdas() {
 fn token() {
     TestExecutor::input(("app.by", "!"))
         .check()
-        .assert_parse_err(|error| matches!(error, CompileError::UnexpectedToken { .. }));
+        .assert_parse_err(|error| matches!(error, DiagnosticMessage::UnexpectedToken { .. }));
 }
 
 #[test]
 fn syntax() {
     TestExecutor::input(("app.by", "module app; def main( -- ) end struct A(u8);"))
         .check()
-        .assert_parse_err(|error| matches!(error, CompileError::ParseError { .. }));
+        .assert_parse_err(|error| matches!(error, DiagnosticMessage::ParseError { .. }));
 }
 
 #[test]
 fn import() {
     TestExecutor::input(("app.by", "import missing; module app;"))
         .check()
-        .assert_parse_err(|error| matches!(error, CompileError::ImportError { .. }));
+        .assert_parse_err(|error| matches!(error, DiagnosticMessage::ImportError { .. }));
 }

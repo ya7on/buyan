@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     common::{CompileContext, DottedPath, Spanned},
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
         parse::ast::{ASTProgram, ASTStruct},
@@ -24,17 +24,17 @@ fn register_struct(
     visiting: &mut HashSet<DottedPath>,
     visited: &mut HashSet<DottedPath>,
     context: &mut HIRContext,
-) -> Result<SymbolId, CompileError> {
+) -> Result<SymbolId, DiagnosticMessage> {
     let declaration = declarations
         .get(name)
-        .ok_or_else(|| CompileError::Unknown {
+        .ok_or_else(|| DiagnosticMessage::Unknown {
             label: format!("Struct declaration not found: {name}"),
         })?;
 
     if visited.contains(name) {
         return context
             .lookup(name)
-            .ok_or_else(|| CompileError::SymbolNotFound {
+            .ok_or_else(|| DiagnosticMessage::SymbolNotFound {
                 name: name.to_string(),
                 span: declaration.item.name.span,
             });
@@ -52,7 +52,7 @@ fn register_struct(
             .find(|name| declarations.contains_key(*name))
         {
             if visiting.contains(dependency) {
-                return Err(CompileError::RecursiveStruct {
+                return Err(DiagnosticMessage::RecursiveStruct {
                     name: dependency.to_string(),
                     span: field.span,
                 });
@@ -66,7 +66,7 @@ fn register_struct(
             )?)
         } else {
             let Some((id, SymbolKind::Type { .. })) = context.lookup_and_get(&field.value) else {
-                return Err(CompileError::SymbolNotFound {
+                return Err(DiagnosticMessage::SymbolNotFound {
                     name: field.value.to_string(),
                     span: field.span,
                 });
@@ -76,13 +76,12 @@ fn register_struct(
         fields.push(Spanned::new(ty, field.span));
     }
 
-    let module_id =
-        context
-            .lookup(&declaration.module_name)
-            .ok_or_else(|| CompileError::SymbolNotFound {
-                name: declaration.module_name.to_string(),
-                span: declaration.item.name.span,
-            })?;
+    let module_id = context.lookup(&declaration.module_name).ok_or_else(|| {
+        DiagnosticMessage::SymbolNotFound {
+            name: declaration.module_name.to_string(),
+            span: declaration.item.name.span,
+        }
+    })?;
     let struct_id = context.register_struct(module_id, declaration.item, fields)?;
     visiting.remove(name);
     visited.insert(name.clone());
@@ -96,7 +95,7 @@ fn register_structs(input: &ASTProgram, context: &mut HIRContext, diagnostics: &
         for item in &module.structs {
             let name = module.name.append(item.name.as_str());
             if declarations.contains_key(&name) || context.lookup(&name).is_some() {
-                diagnostics.emit_fatal(CompileError::SymbolAlreadyExists {
+                diagnostics.emit_fatal(DiagnosticMessage::SymbolAlreadyExists {
                     name: name.to_string(),
                     span: item.name.span,
                 });

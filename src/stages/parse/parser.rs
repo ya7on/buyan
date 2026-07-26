@@ -7,7 +7,7 @@ use chumsky::{
 
 use crate::{
     common::{SourceId, SourceSpan},
-    error::CompileError,
+    error::DiagnosticMessage,
     stages::parse::{ast::ASTModule, lexer::TokenKind, parse_module::module_parser},
 };
 
@@ -21,7 +21,7 @@ pub struct ParseResult {
     pub ast: ASTModule,
 }
 
-pub fn parse(input: ParserInput) -> Result<ParseResult, Vec<CompileError>> {
+pub fn parse(input: ParserInput) -> Result<ParseResult, Vec<DiagnosticMessage>> {
     let end_span = SourceSpan::new(input.source_id, input.content_len..input.content_len);
     let token_stream =
         Stream::from_iter(input.tokens.to_owned()).map(end_span, |(t, s): (_, _)| (t, s));
@@ -33,7 +33,7 @@ pub fn parse(input: ParserInput) -> Result<ParseResult, Vec<CompileError>> {
             let mut result = Vec::with_capacity(errors.len());
             for err in errors {
                 let span = err.span();
-                result.push(CompileError::ParseError {
+                result.push(DiagnosticMessage::ParseError {
                     label: err
                         .expected()
                         .filter(|expected| matches!(expected, RichPattern::Label(_)))

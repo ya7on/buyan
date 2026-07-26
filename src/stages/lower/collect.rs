@@ -1,6 +1,6 @@
 use crate::{
     common::CompileContext,
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
         lower::context::{IRContext, TypeIRInfo, WordIRInfo},
@@ -29,7 +29,7 @@ impl Stage<CompileContext> for CollectSymbolsStage {
         for module in &hir_program.modules {
             for item in &module.structs {
                 let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(item.id) else {
-                    diagnostics.emit_fatal(CompileError::SymbolNotFound {
+                    diagnostics.emit_fatal(DiagnosticMessage::SymbolNotFound {
                         name: item.name.to_string(),
                         span: item.span,
                     });
@@ -48,7 +48,7 @@ impl Stage<CompileContext> for CollectSymbolsStage {
         for module in &hir_program.modules {
             for word in &module.words {
                 let Some(SymbolKind::Word { .. }) = hir_ctx.get(word.id) else {
-                    diagnostics.emit_fatal(CompileError::SymbolNotFound {
+                    diagnostics.emit_fatal(DiagnosticMessage::SymbolNotFound {
                         name: word.signature.name.to_string(),
                         span: word.span,
                     });

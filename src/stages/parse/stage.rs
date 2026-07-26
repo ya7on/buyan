@@ -2,7 +2,7 @@ use std::{collections::HashSet, path::PathBuf};
 
 use crate::{
     common::CompileContext,
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     fs::{FileSystem, Module},
     pipeline::{Stage, StageResult},
     stages::parse::{
@@ -28,7 +28,7 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
     ) -> StageResult<Self::Output> {
         let mut diagnostics = Diagnostics::default();
         let Some(entrypoint) = self.file_loader.read(&input) else {
-            diagnostics.emit_fatal(CompileError::FileNotFound {
+            diagnostics.emit_fatal(DiagnosticMessage::FileNotFound {
                 path: input.display().to_string(),
             });
             return StageResult::new(None, diagnostics);
@@ -98,7 +98,7 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                             });
                         }
                         _ => {
-                            diagnostics.emit_fatal(CompileError::ImportError {
+                            diagnostics.emit_fatal(DiagnosticMessage::ImportError {
                                 path: import.to_string(),
                                 span: import.span,
                             });
@@ -115,7 +115,7 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                     continue;
                 }
                 let Some(module) = self.file_loader.read(&path) else {
-                    diagnostics.emit_fatal(CompileError::ImportError {
+                    diagnostics.emit_fatal(DiagnosticMessage::ImportError {
                         path: path.display().to_string(),
                         span: import.span,
                     });

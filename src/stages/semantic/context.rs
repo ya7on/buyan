@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::{DottedPath, Spanned},
-    error::CompileError,
+    error::DiagnosticMessage,
     stages::{
         parse::ast::{ASTModule, ASTStackEffectItem, ASTStruct, ASTWord, ASTWordVar},
         semantic::hir::HIRType,
@@ -195,7 +195,7 @@ impl HIRContext {
         Some(symbol_id)
     }
 
-    pub fn register_module(&mut self, module: &ASTModule) -> Result<SymbolId, CompileError> {
+    pub fn register_module(&mut self, module: &ASTModule) -> Result<SymbolId, DiagnosticMessage> {
         let module_name = module.name.to_string();
         let Some(id) = self.register(
             &module.name,
@@ -203,7 +203,7 @@ impl HIRContext {
                 name: module.name.value.clone(),
             },
         ) else {
-            return Err(CompileError::SymbolAlreadyExists {
+            return Err(DiagnosticMessage::SymbolAlreadyExists {
                 name: module_name,
                 span: module.name.span,
             });
@@ -215,12 +215,12 @@ impl HIRContext {
         &mut self,
         module_name: &DottedPath,
         word: &ASTWord,
-    ) -> Result<SymbolId, CompileError> {
+    ) -> Result<SymbolId, DiagnosticMessage> {
         if !matches!(
             self.lookup_and_get(module_name),
             Some((_, SymbolKind::Module { .. }))
         ) {
-            return Err(CompileError::Unknown {
+            return Err(DiagnosticMessage::Unknown {
                 label: "Invalid module for word".to_string(),
             });
         }
@@ -239,7 +239,7 @@ impl HIRContext {
                                 name: name.to_string(),
                             },
                         )
-                        .ok_or_else(|| CompileError::SymbolAlreadyExists {
+                        .ok_or_else(|| DiagnosticMessage::SymbolAlreadyExists {
                             name: name.to_string(),
                             span: word.name.span,
                         })?;
@@ -251,7 +251,7 @@ impl HIRContext {
                         let Some((trait_id, SymbolKind::Trait { .. })) =
                             self.lookup_and_get(&DottedPath::parse(trait_name))
                         else {
-                            return Err(CompileError::SymbolNotFound {
+                            return Err(DiagnosticMessage::SymbolNotFound {
                                 name: trait_name.value.clone(),
                                 span: trait_name.span,
                             });
@@ -268,7 +268,7 @@ impl HIRContext {
                                 traits: trait_ids,
                             },
                         )
-                        .ok_or_else(|| CompileError::SymbolAlreadyExists {
+                        .ok_or_else(|| DiagnosticMessage::SymbolAlreadyExists {
                             name: name.to_string(),
                             span: word.name.span,
                         })?;
@@ -301,7 +301,7 @@ impl HIRContext {
                 stack_out,
             },
         )
-        .ok_or_else(|| CompileError::SymbolAlreadyExists {
+        .ok_or_else(|| DiagnosticMessage::SymbolAlreadyExists {
             name: word.name.to_string(),
             span: word.name.span,
         })
@@ -312,9 +312,9 @@ impl HIRContext {
         module_id: SymbolId,
         item: &ASTStruct,
         fields: Vec<Spanned<HIRType>>,
-    ) -> Result<SymbolId, CompileError> {
+    ) -> Result<SymbolId, DiagnosticMessage> {
         let Some(SymbolKind::Module { name: module_name }) = self.get(module_id) else {
-            return Err(CompileError::Unknown {
+            return Err(DiagnosticMessage::Unknown {
                 label: "Invalid module for struct".to_string(),
             });
         };
@@ -327,7 +327,7 @@ impl HIRContext {
                 fields,
             },
         )
-        .ok_or(CompileError::SymbolAlreadyExists {
+        .ok_or(DiagnosticMessage::SymbolAlreadyExists {
             name: display_name,
             span: item.name.span,
         })
@@ -338,7 +338,7 @@ impl HIRContext {
         module_name: &DottedPath,
         wordpath: &DottedPath,
         item: &Spanned<ASTStackEffectItem>,
-    ) -> Result<HIRType, CompileError> {
+    ) -> Result<HIRType, DiagnosticMessage> {
         match &item.value {
             ASTStackEffectItem::Symbol { name } => {
                 if name.len() == 1
@@ -361,7 +361,7 @@ impl HIRContext {
                             _ => None,
                         }
                     })
-                    .ok_or_else(|| CompileError::SymbolNotFound {
+                    .ok_or_else(|| DiagnosticMessage::SymbolNotFound {
                         name: name.to_string(),
                         span: item.span,
                     })
@@ -370,7 +370,7 @@ impl HIRContext {
                 let Some((id, SymbolKind::StackVar { .. })) =
                     self.lookup_and_get(&wordpath.append(name))
                 else {
-                    return Err(CompileError::SymbolNotFound {
+                    return Err(DiagnosticMessage::SymbolNotFound {
                         name: name.to_owned(),
                         span: item.span,
                     });

@@ -1,4 +1,4 @@
-use crate::error::{CompileError, Diagnostics};
+use crate::error::{Diagnostic, DiagnosticKind, Diagnostics};
 
 pub struct StageResult<T> {
     output: Option<T>,
@@ -64,19 +64,16 @@ impl<O, C: Default> PipelineBuilder<O, C> {
         }
     }
 
-    pub fn dump(&self) -> Result<&O, &Vec<CompileError>> {
-        if !self.diagnostics.errors.is_empty() {
-            Err(&self.diagnostics.errors)
+    pub fn dump(&self) -> Result<&O, &Vec<Diagnostic>> {
+        if self
+            .diagnostics
+            .items
+            .iter()
+            .any(|diagnostic| diagnostic.kind == DiagnosticKind::Error)
+        {
+            Err(&self.diagnostics.items)
         } else {
-            self.prev.as_ref().ok_or(&self.diagnostics.errors)
-        }
-    }
-
-    pub fn finish(self) -> Result<O, Vec<CompileError>> {
-        if !self.diagnostics.errors.is_empty() {
-            Err(self.diagnostics.errors)
-        } else {
-            self.prev.ok_or_else(Vec::new)
+            self.prev.as_ref().ok_or(&self.diagnostics.items)
         }
     }
 }

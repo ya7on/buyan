@@ -1,9 +1,9 @@
-use chumsky::span::Span as ChumskySpan;
+use chumsky::span::Span;
 use logos::Logos;
 
 use crate::{
     common::{SourceId, SourceSpan},
-    error::CompileError,
+    error::DiagnosticMessage,
 };
 
 pub struct LexInput {
@@ -16,14 +16,14 @@ pub struct LexResult {
     pub tokens: Vec<(TokenKind, SourceSpan)>,
 }
 
-pub fn lex(input: LexInput) -> Result<LexResult, Vec<CompileError>> {
+pub fn lex(input: LexInput) -> Result<LexResult, Vec<DiagnosticMessage>> {
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
     for (token, range) in TokenKind::lexer(&input.content).spanned() {
         let span = SourceSpan::new(input.source_id, range);
         match token {
             Ok(token) => tokens.push((token, span)),
-            Err(_) => errors.push(CompileError::UnexpectedToken { span: span.into() }),
+            Err(_) => errors.push(DiagnosticMessage::UnexpectedToken { span: span.into() }),
         }
     }
     if errors.is_empty() {

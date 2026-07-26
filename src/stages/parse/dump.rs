@@ -1,6 +1,6 @@
 use crate::{
     common::CompileContext,
-    error::{CompileError, Diagnostics},
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::parse::ast::{
         ASTInstruction, ASTLiteral, ASTModule, ASTProgram, ASTStackEffect, ASTStackEffectItem,
@@ -147,7 +147,7 @@ impl Stage<CompileContext> for DumpAst {
         let mut diagnostics = Diagnostics::default();
         for module in &input.modules {
             if let Err(error) = dump_module(&mut result, module) {
-                diagnostics.emit_fatal(CompileError::Unknown {
+                diagnostics.emit_fatal(DiagnosticMessage::Unknown {
                     label: error.to_string(),
                 });
                 break;
