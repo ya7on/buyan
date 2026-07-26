@@ -1,7 +1,6 @@
 use crate::{
     common::CompileContext,
-    error::CompileError,
-    pipeline::Stage,
+    pipeline::{Stage, StageResult},
     stages::lower::{
         context::{IRContext, TypeId, WordId},
         ir::{BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator},
@@ -267,8 +266,8 @@ impl Stage<CompileContext> for IRInterpreter {
         &mut self,
         (_ir_ctx, ir_program): Self::Input,
         _: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
+    ) -> StageResult<Self::Output> {
         IRInterpreter::execute(self, &ir_program);
-        Ok(())
+        StageResult::success(())
     }
 }

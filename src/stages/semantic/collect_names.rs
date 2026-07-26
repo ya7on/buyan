@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     common::{CompileContext, DottedPath, Spanned},
-    error::CompileError,
-    pipeline::Stage,
+    error::{CompileError, Diagnostics},
+    pipeline::{Stage, StageResult},
     stages::{
         parse::ast::{ASTProgram, ASTStruct},
         semantic::{
@@ -89,15 +89,14 @@ fn register_struct(
     Ok(struct_id)
 }
 
-fn register_structs(input: &ASTProgram, context: &mut HIRContext) -> Result<(), Vec<CompileError>> {
+fn register_structs(input: &ASTProgram, context: &mut HIRContext, diagnostics: &mut Diagnostics) {
     let mut declarations = HashMap::new();
-    let mut errors = Vec::new();
 
     for module in &input.modules {
         for item in &module.structs {
             let name = module.name.append(item.name.as_str());
             if declarations.contains_key(&name) || context.lookup(&name).is_some() {
-                errors.push(CompileError::SymbolAlreadyExists {
+                diagnostics.emit_fatal(CompileError::SymbolAlreadyExists {
                     name: name.to_string(),
                     span: item.name.span,
                 });
@@ -113,22 +112,18 @@ fn register_structs(input: &ASTProgram, context: &mut HIRContext) -> Result<(), 
         }
     }
 
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-
     let names = declarations.keys().cloned().collect::<Vec<_>>();
-    let mut visiting = HashSet::new();
     let mut visited = HashSet::new();
     for name in names {
-        if !visited.contains(&name)
-            && let Err(err) =
+        if !visited.contains(&name) {
+            let mut visiting = HashSet::new();
+            if let Err(err) =
                 register_struct(&name, &declarations, &mut visiting, &mut visited, context)
-        {
-            return Err(vec![err]);
+            {
+                diagnostics.emit_fatal(err);
+            }
         }
     }
-    Ok(())
 }
 
 #[derive(Default)]
@@ -138,41 +133,29 @@ impl Stage<CompileContext> for CollectNamesStage {
     type Input = ASTProgram;
     type Output = (HIRContext, ASTProgram);
 
-    fn execute(
-        &mut self,
-        input: Self::Input,
-        _: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
-        let mut errors = Vec::new();
-
+    fn execute(&mut self, input: Self::Input, _: &mut CompileContext) -> StageResult<Self::Output> {
+        let mut diagnostics = Diagnostics::default();
         let mut context = HIRContext::default();
 
         for module in &input.modules {
             if let Err(err) = context.register_module(module) {
-                errors.push(err);
+                diagnostics.emit_fatal(err);
             }
         }
 
-        if errors.is_empty()
-            && let Err(struct_errors) = register_structs(&input, &mut context)
-        {
-            errors.extend(struct_errors);
-        }
+        register_structs(&input, &mut context, &mut diagnostics);
 
         for module in &input.modules {
             for word in &module.words {
                 match context.register_word(&module.name, word) {
                     Ok(_) => {}
                     Err(err) => {
-                        errors.push(err);
+                        diagnostics.emit_fatal(err);
                     }
                 }
             }
         }
 
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok((context, input))
+        StageResult::new(Some((context, input)), diagnostics)
     }
 }

@@ -5,11 +5,10 @@ use chumsky::{
     input::ValueInput,
     prelude::{choice, just, recursive},
     select,
-    span::SimpleSpan,
 };
 
 use crate::{
-    common::{DottedPath, Spanned},
+    common::{DottedPath, SourceSpan, Spanned},
     stages::parse::{
         ast::{ASTInstruction, ASTLiteral},
         lexer::TokenKind,
@@ -19,9 +18,9 @@ use crate::{
 
 #[must_use]
 pub fn instruction_parser<'src, I>()
--> impl Parser<'src, I, ASTInstruction, Err<Rich<'src, TokenKind>>>
+-> impl Parser<'src, I, ASTInstruction, Err<Rich<'src, TokenKind, SourceSpan>>>
 where
-    I: ValueInput<'src, Token = TokenKind, Span = SimpleSpan>,
+    I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
     recursive(|instr| {
         let literal = select! {
@@ -66,13 +65,13 @@ where
         let lambda = stack_effect_parser()
             .delimited_by(just(TokenKind::Pipe), just(TokenKind::Pipe))
             .map_with(|stack_effect, extra| {
-                let span: SimpleSpan = extra.span();
+                let span: SourceSpan = extra.span();
                 Spanned::new(stack_effect, span)
             })
             .then(
                 instr
                     .map_with(|instr, extra| {
-                        let span: SimpleSpan = extra.span();
+                        let span: SourceSpan = extra.span();
                         Spanned::new(instr, span)
                     })
                     .repeated()

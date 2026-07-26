@@ -2,9 +2,9 @@ use std::{collections::HashSet, path::PathBuf};
 
 use crate::{
     common::CompileContext,
-    error::CompileError,
+    error::{CompileError, Diagnostics},
     fs::{FileSystem, Module},
-    pipeline::Stage,
+    pipeline::{Stage, StageResult},
     stages::parse::{
         ast::ASTProgram,
         lexer::{LexInput, lex},
@@ -25,37 +25,43 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
         &mut self,
         input: Self::Input,
         context: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
-        let entrypoint = self.file_loader.read(&input).ok_or_else(|| {
-            vec![CompileError::FileNotFound {
+    ) -> StageResult<Self::Output> {
+        let mut diagnostics = Diagnostics::default();
+        let Some(entrypoint) = self.file_loader.read(&input) else {
+            diagnostics.emit_fatal(CompileError::FileNotFound {
                 path: input.display().to_string(),
-            }]
-        })?;
-        context
-            .sources
-            .insert(entrypoint.absolute.clone(), entrypoint.content.clone());
-
+            });
+            return StageResult::new(None, diagnostics);
+        };
         let mut queue = vec![entrypoint];
-        let mut errors = Vec::new();
         let mut modules = Vec::new();
         let mut visited = HashSet::new();
 
         while let Some(module) = queue.pop() {
+            let source_id = context.add_source(module.absolute.clone(), module.content.clone());
+            let content_len = module.content.len();
             let lexer_result = match lex(LexInput {
                 content: module.content,
+                source_id,
             }) {
                 Ok(tokens) => tokens,
                 Err(err) => {
-                    errors.extend(err);
+                    for error in err {
+                        diagnostics.emit_fatal(error);
+                    }
                     continue;
                 }
             };
             let parse_result = match parse(ParserInput {
                 tokens: lexer_result.tokens,
+                source_id,
+                content_len,
             }) {
                 Ok(ast) => ast,
                 Err(err) => {
-                    errors.extend(err);
+                    for error in err {
+                        diagnostics.emit_fatal(error);
+                    }
                     continue;
                 }
             };
@@ -92,7 +98,7 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                             });
                         }
                         _ => {
-                            errors.push(CompileError::ImportError {
+                            diagnostics.emit_fatal(CompileError::ImportError {
                                 path: import.to_string(),
                                 span: import.span,
                             });
@@ -109,24 +115,18 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                     continue;
                 }
                 let Some(module) = self.file_loader.read(&path) else {
-                    errors.push(CompileError::ImportError {
+                    diagnostics.emit_fatal(CompileError::ImportError {
                         path: path.display().to_string(),
                         span: import.span,
                     });
                     continue;
                 };
-                context
-                    .sources
-                    .insert(module.absolute.clone(), module.content.clone());
                 queue.push(module);
             }
 
             modules.push(parse_result.ast);
         }
 
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok(ASTProgram { modules })
+        StageResult::new(Some(ASTProgram { modules }), diagnostics)
     }
 }

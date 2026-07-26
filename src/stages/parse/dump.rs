@@ -1,7 +1,7 @@
 use crate::{
     common::CompileContext,
-    error::CompileError,
-    pipeline::Stage,
+    error::{CompileError, Diagnostics},
+    pipeline::{Stage, StageResult},
     stages::parse::ast::{
         ASTInstruction, ASTLiteral, ASTModule, ASTProgram, ASTStackEffect, ASTStackEffectItem,
         ASTWord, ASTWordVar,
@@ -142,21 +142,19 @@ impl Stage<CompileContext> for DumpAst {
     type Input = ASTProgram;
     type Output = ASTProgram;
 
-    fn execute(
-        &mut self,
-        input: Self::Input,
-        _: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
+    fn execute(&mut self, input: Self::Input, _: &mut CompileContext) -> StageResult<Self::Output> {
         let mut result = String::new();
+        let mut diagnostics = Diagnostics::default();
         for module in &input.modules {
-            dump_module(&mut result, module).map_err(|e| {
-                vec![CompileError::Unknown {
-                    label: e.to_string(),
-                }]
-            })?;
+            if let Err(error) = dump_module(&mut result, module) {
+                diagnostics.emit_fatal(CompileError::Unknown {
+                    label: error.to_string(),
+                });
+                break;
+            }
         }
         println!("{}", result);
 
-        Ok(input)
+        StageResult::new(Some(input), diagnostics)
     }
 }

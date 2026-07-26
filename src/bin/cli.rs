@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
+use ariadne::{Color, Label, Report, ReportKind};
 use buyan::{
+    common::CompileContext,
     error::CompileError,
     fs::RealFileSystem,
     pipeline::PipelineBuilder,
@@ -23,9 +25,36 @@ struct Args {
     path: PathBuf,
 }
 
-fn print_errors(errors: &[CompileError]) {
+fn print_errors(context: &CompileContext, errors: &[CompileError]) {
+    let mut cache = ariadne::sources(
+        context
+            .sources
+            .values()
+            .map(|source| (source.path.display().to_string(), source.content.clone())),
+    );
+
     for error in errors {
-        println!("{:?}", error);
+        let Some(span) = error.span() else {
+            eprintln!("{error:?}");
+            continue;
+        };
+        let Some(source) = context.sources.get(&span.source_id) else {
+            eprintln!("{error:?}");
+            continue;
+        };
+
+        let path = source.path.display().to_string();
+        let range = source.content[..span.start].chars().count()
+            ..source.content[..span.end].chars().count();
+
+        if let Err(error) = Report::build(ReportKind::Error, (path.clone(), range.clone()))
+            .with_message(format!("{error:?}"))
+            .with_label(Label::new((path, range)).with_color(Color::Red))
+            .finish()
+            .eprint(&mut cache)
+        {
+            eprintln!("failed to print diagnostic: {error}");
+        }
     }
 }
 
@@ -33,17 +62,16 @@ fn main() {
     let args = Args::parse();
 
     let pipeline = PipelineBuilder::new(args.path)
-        .stage::<ParseStage<RealFileSystem>>()
-        // .stage::<DumpAst>()
-        .stage::<CollectNamesStage>()
-        .stage::<CollectHIRStage>()
-        .stage::<TypeCheckStage>()
-        .stage::<CollectSymbolsStage>()
-        .stage::<LowerStage>()
-        .stage::<IRInterpreter>();
-    // let context = pipeline.context();
-    match pipeline.finish() {
-        Ok(_) => {}
-        Err(errors) => print_errors(&errors),
+        .stage(ParseStage::<RealFileSystem>::default())
+        // .stage(DumpAst)
+        .stage(CollectNamesStage)
+        .stage(CollectHIRStage)
+        .stage(TypeCheckStage)
+        .stage(CollectSymbolsStage)
+        .stage(LowerStage)
+        .stage(IRInterpreter::default());
+
+    if let Err(errors) = pipeline.dump() {
+        print_errors(&pipeline.context, errors);
     }
 }

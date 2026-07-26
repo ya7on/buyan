@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     common::{CompileContext, DottedPath, Spanned},
-    error::CompileError,
-    pipeline::Stage,
+    error::{CompileError, Diagnostics},
+    pipeline::{Stage, StageResult},
     stages::{
         parse::ast::{ASTInstruction, ASTLiteral, ASTModule, ASTProgram, ASTStruct, ASTWord},
         semantic::{
@@ -30,7 +30,7 @@ impl CollectHIRStage {
         word: &ASTWord,
         instruction: &Spanned<ASTInstruction>,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRInstruction, Vec<CompileError>> {
+    ) -> Result<HIRInstruction, CompileError> {
         match &instruction.value {
             ASTInstruction::Literal(literal) => match literal {
                 ASTLiteral::U8(value) => Ok(HIRInstruction::Literal(HIRLiteral::U8(*value))),
@@ -59,10 +59,10 @@ impl CollectHIRStage {
                             .collect::<Option<Vec<_>>>()
                             .map(DottedPath)
                         else {
-                            return Err(vec![CompileError::SymbolNotFound {
+                            return Err(CompileError::SymbolNotFound {
                                 name: call.to_string(),
                                 span: instruction.span,
-                            }]);
+                            });
                         };
                         let resolved = (struct_name.len() == 1)
                             .then(|| module.name.extend(&struct_name))
@@ -75,24 +75,24 @@ impl CollectHIRStage {
                                     .map(|(id, symbol)| (id, symbol, candidate.to_string()))
                             });
                         let Some((struct_id, symbol, full_name)) = resolved else {
-                            return Err(vec![CompileError::SymbolNotFound {
+                            return Err(CompileError::SymbolNotFound {
                                 name: call.to_string(),
                                 span: instruction.span,
-                            }]);
+                            });
                         };
                         let SymbolKind::Struct { name, fields } = symbol else {
-                            return Err(vec![CompileError::InvalidSymbol {
+                            return Err(CompileError::InvalidSymbol {
                                 name: full_name,
                                 span: instruction.span,
-                            }]);
+                            });
                         };
                         if *field_index >= fields.len() {
-                            return Err(vec![CompileError::InvalidFieldIndex {
+                            return Err(CompileError::InvalidFieldIndex {
                                 name: name.clone(),
                                 index: *field_index,
                                 field_count: fields.len(),
                                 span: instruction.span,
-                            }]);
+                            });
                         }
                         Ok(HIRInstruction::GetField {
                             name: name.clone(),
@@ -110,10 +110,10 @@ impl CollectHIRStage {
                             .collect::<Option<Vec<_>>>()
                             .map(DottedPath)
                         else {
-                            return Err(vec![CompileError::SymbolNotFound {
+                            return Err(CompileError::SymbolNotFound {
                                 name: call.to_string(),
                                 span: instruction.span,
-                            }]);
+                            });
                         };
                         let Some((symbol_id, full_name)) = (name.len() == 1)
                             .then(|| module.name.extend(&name))
@@ -127,10 +127,10 @@ impl CollectHIRStage {
                                 _ => None,
                             })
                         else {
-                            return Err(vec![CompileError::SymbolNotFound {
+                            return Err(CompileError::SymbolNotFound {
                                 name: name.to_string(),
                                 span: instruction.span,
-                            }]);
+                            });
                         };
                         Ok(HIRInstruction::Call {
                             name: full_name,
@@ -150,10 +150,10 @@ impl CollectHIRStage {
                         _ => None,
                     })
                 else {
-                    return Err(vec![CompileError::SymbolNotFound {
+                    return Err(CompileError::SymbolNotFound {
                         name: name.to_string(),
                         span: instruction.span,
-                    }]);
+                    });
                 };
                 let full_name = match hir_ctx.get(struct_id) {
                     Some(SymbolKind::Struct { name, .. }) => name.clone(),
@@ -179,15 +179,11 @@ impl CollectHIRStage {
                 let wordpath = module.name.append(&word.name.value);
 
                 for item in &stack_effect.stack_in {
-                    let ty = hir_ctx
-                        .handle_stack_item(&module.name, &wordpath, item)
-                        .map_err(|err| vec![err])?;
+                    let ty = hir_ctx.handle_stack_item(&module.name, &wordpath, item)?;
                     result_stack_in.push(ty);
                 }
                 for item in &stack_effect.stack_out {
-                    let ty = hir_ctx
-                        .handle_stack_item(&module.name, &wordpath, item)
-                        .map_err(|err| vec![err])?;
+                    let ty = hir_ctx.handle_stack_item(&module.name, &wordpath, item)?;
                     result_stack_out.push(ty);
                 }
                 for instruction in body {
@@ -208,14 +204,14 @@ impl CollectHIRStage {
         module: &ASTModule,
         item: &ASTStruct,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRStruct, Vec<CompileError>> {
+    ) -> Result<HIRStruct, CompileError> {
         let fullpath = module.name.append(item.name.as_str());
         let Some((id, SymbolKind::Struct { fields, .. })) = hir_ctx.lookup_and_get(&fullpath)
         else {
-            return Err(vec![CompileError::SymbolNotFound {
+            return Err(CompileError::SymbolNotFound {
                 name: fullpath.to_string(),
                 span: item.name.span,
-            }]);
+            });
         };
         Ok(HIRStruct {
             id,
@@ -229,33 +225,33 @@ impl CollectHIRStage {
         is_root_module: bool,
         word: &ASTWord,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRWord, Vec<CompileError>> {
+    ) -> Result<HIRWord, CompileError> {
         let mut attributes = Vec::with_capacity(word.attributes.len());
         for attribute in &word.attributes {
             match attribute.value.as_str() {
                 "builtin" => attributes.push(HIRWordAttribute::BuiltIn),
                 _ => {
-                    return Err(vec![CompileError::InvalidAttribute {
+                    return Err(CompileError::InvalidAttribute {
                         name: attribute.value.clone(),
                         span: attribute.span,
-                    }]);
+                    });
                 }
             }
         }
 
         let fullpath = module.name.append(&word.name);
-        let word_id = hir_ctx.lookup(&fullpath).ok_or_else(|| {
-            vec![CompileError::SymbolNotFound {
+        let word_id = hir_ctx
+            .lookup(&fullpath)
+            .ok_or_else(|| CompileError::SymbolNotFound {
                 name: word.name.to_string(),
                 span: word.name.span,
-            }]
-        })?;
-        let symbol = hir_ctx.get(word_id).ok_or_else(|| {
-            vec![CompileError::SymbolNotFound {
+            })?;
+        let symbol = hir_ctx
+            .get(word_id)
+            .ok_or_else(|| CompileError::SymbolNotFound {
                 name: word.name.to_string(),
                 span: word.name.span,
-            }]
-        })?;
+            })?;
         let SymbolKind::Word {
             typevars,
             stackvars,
@@ -263,10 +259,10 @@ impl CollectHIRStage {
             stack_out,
         } = symbol
         else {
-            return Err(vec![CompileError::InvalidSymbol {
+            return Err(CompileError::InvalidSymbol {
                 name: word.name.to_string(),
                 span: word.name.span,
-            }]);
+            });
         };
 
         let mut body = Vec::with_capacity(word.body.len());
@@ -296,42 +292,45 @@ impl CollectHIRStage {
     fn analyze_module(
         module: &ASTModule,
         hir_ctx: &HIRContext,
-    ) -> Result<HIRModule, Vec<CompileError>> {
-        let module_id = hir_ctx.lookup(&module.name).ok_or_else(|| {
-            vec![CompileError::SymbolNotFound {
+        diagnostics: &mut Diagnostics,
+    ) -> Option<HIRModule> {
+        let Some(module_id) = hir_ctx.lookup(&module.name) else {
+            diagnostics.emit_fatal(CompileError::SymbolNotFound {
                 name: module.name.to_string(),
                 span: module.name.span,
-            }]
-        })?;
+            });
+            return None;
+        };
 
         let mut imports = vec![];
         for import in &module.imports {
-            let import_id = hir_ctx.lookup(&import.value).ok_or_else(|| {
-                vec![CompileError::SymbolNotFound {
+            let Some(import_id) = hir_ctx.lookup(&import.value) else {
+                diagnostics.emit_fatal(CompileError::SymbolNotFound {
                     name: import.value.to_string(),
                     span: import.span,
-                }]
-            })?;
+                });
+                continue;
+            };
             imports.push(Spanned::new(import_id, import.span));
         }
 
         let mut structs = vec![];
         for item in &module.structs {
-            structs.push(Spanned::new(
-                Self::analyze_struct(module, item, hir_ctx)?,
-                item.span,
-            ));
+            match Self::analyze_struct(module, item, hir_ctx) {
+                Ok(analyzed) => structs.push(Spanned::new(analyzed, item.span)),
+                Err(error) => diagnostics.emit_fatal(error),
+            }
         }
 
         let mut words = vec![];
         for (index, word) in module.words.iter().enumerate() {
-            words.push(Spanned::new(
-                Self::analyze_word(module, index == 0, word, hir_ctx)?,
-                word.name.span,
-            ));
+            match Self::analyze_word(module, index == 0, word, hir_ctx) {
+                Ok(analyzed) => words.push(Spanned::new(analyzed, word.name.span)),
+                Err(error) => diagnostics.emit_fatal(error),
+            }
         }
 
-        Ok(HIRModule {
+        Some(HIRModule {
             id: module_id,
             imports,
             structs,
@@ -348,24 +347,17 @@ impl Stage<CompileContext> for CollectHIRStage {
         &mut self,
         (hir_ctx, ast): Self::Input,
         _: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
+    ) -> StageResult<Self::Output> {
+        let mut diagnostics = Diagnostics::default();
         let mut result = HIRProgram { modules: vec![] };
-        let mut errors = vec![];
 
         for module in &ast.modules {
-            match Self::analyze_module(module, &hir_ctx) {
-                Ok(analyzed_module) => {
-                    result.modules.push(analyzed_module);
-                }
-                Err(module_errors) => {
-                    errors.extend(module_errors);
-                }
+            if let Some(analyzed_module) = Self::analyze_module(module, &hir_ctx, &mut diagnostics)
+            {
+                result.modules.push(analyzed_module);
             }
         }
 
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok((hir_ctx, result))
+        StageResult::new(Some((hir_ctx, result)), diagnostics)
     }
 }

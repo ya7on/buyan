@@ -1,7 +1,7 @@
 use crate::{
     common::{CompileContext, Span, Spanned},
-    error::CompileError,
-    pipeline::Stage,
+    error::{CompileError, Diagnostics},
+    pipeline::{Stage, StageResult},
     stages::{
         lower::{
             context::{IRContext, WordId},
@@ -310,8 +310,8 @@ impl Stage<CompileContext> for LowerStage {
         &mut self,
         (ir_ctx, hir_program): Self::Input,
         _: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
-        let mut errors = Vec::new();
+    ) -> StageResult<Self::Output> {
+        let mut diagnostics = Diagnostics::default();
         let mut result = IRProgram { words: Vec::new() };
         let mut lambda_words = Vec::new();
         let base_word_count = ir_ctx.words.len();
@@ -321,16 +321,15 @@ impl Stage<CompileContext> for LowerStage {
                 match Self::lower_word(&ir_ctx, word, &mut lambda_words, base_word_count) {
                     Ok(word) => result.words.push(word),
                     Err(err) => {
-                        errors.extend(err);
+                        for error in err {
+                            diagnostics.emit_fatal(error);
+                        }
                     }
                 }
             }
         }
         result.words.extend(lambda_words);
 
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok((ir_ctx, result))
+        StageResult::new(Some((ir_ctx, result)), diagnostics)
     }
 }

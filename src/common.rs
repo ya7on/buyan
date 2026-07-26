@@ -7,21 +7,28 @@ use std::{
 
 use chumsky::span::SimpleSpan;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct SourceId(pub usize);
+
+pub type SourceSpan = SimpleSpan<usize, SourceId>;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Source {
+    pub path: PathBuf,
+    pub content: String,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Span {
+    pub source_id: SourceId,
     pub start: usize,
     pub end: usize,
 }
 
-impl From<SimpleSpan> for Span {
-    fn from(span: SimpleSpan) -> Self {
-        (&span).into()
-    }
-}
-
-impl From<&SimpleSpan> for Span {
-    fn from(span: &SimpleSpan) -> Self {
+impl From<SourceSpan> for Span {
+    fn from(span: SourceSpan) -> Self {
         Self {
+            source_id: span.context,
             start: span.start,
             end: span.end,
         }
@@ -57,7 +64,21 @@ impl<T: Debug> Deref for Spanned<T> {
 
 #[derive(Default)]
 pub struct CompileContext {
-    pub sources: HashMap<PathBuf, String>,
+    pub sources: HashMap<SourceId, Source>,
+    source_ids: HashMap<PathBuf, SourceId>,
+}
+
+impl CompileContext {
+    pub fn add_source(&mut self, path: PathBuf, content: String) -> SourceId {
+        if let Some(source_id) = self.source_ids.get(&path) {
+            return *source_id;
+        }
+
+        let source_id = SourceId(self.sources.len());
+        self.source_ids.insert(path.clone(), source_id);
+        self.sources.insert(source_id, Source { path, content });
+        source_id
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]

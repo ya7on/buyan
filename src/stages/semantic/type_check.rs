@@ -1,7 +1,7 @@
 use crate::{
     common::{CompileContext, DottedPath, Spanned},
-    error::CompileError,
-    pipeline::Stage,
+    error::{CompileError, Diagnostics},
+    pipeline::{Stage, StageResult},
     stages::semantic::{
         context::{HIRContext, SymbolKind},
         hir::{HIRInstruction, HIRLiteral, HIRProgram, HIRType, HIRWord, HIRWordAttribute},
@@ -169,8 +169,8 @@ impl Stage<CompileContext> for TypeCheckStage {
         &mut self,
         (hir_ctx, hir_program): Self::Input,
         _: &mut CompileContext,
-    ) -> Result<Self::Output, Vec<CompileError>> {
-        let mut errors = Vec::new();
+    ) -> StageResult<Self::Output> {
+        let mut diagnostics = Diagnostics::default();
         for module in &hir_program.modules {
             for word in &module.words {
                 if word.attributes.contains(&HIRWordAttribute::BuiltIn) {
@@ -178,14 +178,11 @@ impl Stage<CompileContext> for TypeCheckStage {
                 }
 
                 if let Err(err) = TypeCheckStage::type_check_word(word, &hir_ctx) {
-                    errors.push(err);
+                    diagnostics.emit_fatal(err);
                 }
             }
         }
 
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok((hir_ctx, hir_program))
+        StageResult::new(Some((hir_ctx, hir_program)), diagnostics)
     }
 }

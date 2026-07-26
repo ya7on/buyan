@@ -5,11 +5,10 @@ use chumsky::{
     input::ValueInput,
     prelude::{just, recursive},
     select,
-    span::SimpleSpan,
 };
 
 use crate::{
-    common::{DottedPath, Spanned},
+    common::{DottedPath, SourceSpan, Spanned},
     stages::parse::{
         ast::{ASTStackEffect, ASTStackEffectItem},
         lexer::TokenKind,
@@ -18,9 +17,9 @@ use crate::{
 
 #[must_use]
 pub fn stack_item_parser<'src, I>()
--> impl Parser<'src, I, ASTStackEffectItem, Err<Rich<'src, TokenKind>>> + Clone
+-> impl Parser<'src, I, ASTStackEffectItem, Err<Rich<'src, TokenKind, SourceSpan>>> + Clone
 where
-    I: ValueInput<'src, Token = TokenKind, Span = SimpleSpan>,
+    I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
     recursive(|ty| {
         let stack_var = just(TokenKind::Ellipsis).ignore_then(
@@ -37,7 +36,7 @@ where
         let lambda = ty
             .clone()
             .map_with(|instr, extra| {
-                let span: SimpleSpan = extra.span();
+                let span: SourceSpan = extra.span();
                 Spanned::new(instr, span)
             })
             .separated_by(just(TokenKind::Comma))
@@ -45,7 +44,7 @@ where
             .then_ignore(just(TokenKind::MinusMinus))
             .then(
                 ty.map_with(|instr, extra| {
-                    let span: SimpleSpan = extra.span();
+                    let span: SourceSpan = extra.span();
                     Spanned::new(instr, span)
                 })
                 .separated_by(just(TokenKind::Comma))
@@ -53,7 +52,7 @@ where
             )
             .delimited_by(just(TokenKind::Pipe), just(TokenKind::Pipe))
             .map_with(|(stack_in, stack_out), extra| {
-                let span: SimpleSpan = extra.span();
+                let span: SourceSpan = extra.span();
                 ASTStackEffectItem::Lambda {
                     stack_effect: Spanned::new(
                         ASTStackEffect {
@@ -71,20 +70,20 @@ where
 
 #[must_use]
 pub fn stack_effect_parser<'src, I>()
--> impl Parser<'src, I, ASTStackEffect, Err<Rich<'src, TokenKind>>> + Clone
+-> impl Parser<'src, I, ASTStackEffect, Err<Rich<'src, TokenKind, SourceSpan>>> + Clone
 where
-    I: ValueInput<'src, Token = TokenKind, Span = SimpleSpan>,
+    I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
     let stack_in = stack_item_parser()
         .map_with(|value, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             Spanned::new(value, span)
         })
         .separated_by(just(TokenKind::Comma))
         .collect::<Vec<_>>();
     let stack_out = stack_item_parser()
         .map_with(|value, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             Spanned::new(value, span)
         })
         .separated_by(just(TokenKind::Comma))

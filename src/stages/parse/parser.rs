@@ -2,16 +2,19 @@ use chumsky::{
     Parser,
     error::RichPattern,
     input::{Input, Stream},
-    span::SimpleSpan,
+    span::Span,
 };
 
 use crate::{
+    common::{SourceId, SourceSpan},
     error::CompileError,
     stages::parse::{ast::ASTModule, lexer::TokenKind, parse_module::module_parser},
 };
 
 pub struct ParserInput {
-    pub tokens: Vec<(TokenKind, SimpleSpan)>,
+    pub tokens: Vec<(TokenKind, SourceSpan)>,
+    pub source_id: SourceId,
+    pub content_len: usize,
 }
 
 pub struct ParseResult {
@@ -19,8 +22,9 @@ pub struct ParseResult {
 }
 
 pub fn parse(input: ParserInput) -> Result<ParseResult, Vec<CompileError>> {
-    let token_stream = Stream::from_iter(input.tokens.to_owned())
-        .map((0..input.tokens.len()).into(), |(t, s): (_, _)| (t, s));
+    let end_span = SourceSpan::new(input.source_id, input.content_len..input.content_len);
+    let token_stream =
+        Stream::from_iter(input.tokens.to_owned()).map(end_span, |(t, s): (_, _)| (t, s));
 
     let ast = module_parser()
         .parse(token_stream)
@@ -35,7 +39,7 @@ pub fn parse(input: ParserInput) -> Result<ParseResult, Vec<CompileError>> {
                         .filter(|expected| matches!(expected, RichPattern::Label(_)))
                         .map(|label| format!("{label:?}"))
                         .collect(),
-                    span: span.into(),
+                    span: (*span).into(),
                 });
             }
             result

@@ -1,10 +1,9 @@
 use chumsky::{
     IterParser, Parser, error::Rich, extra::Err, input::ValueInput, prelude::just, select,
-    span::SimpleSpan,
 };
 
 use crate::{
-    common::Spanned,
+    common::{SourceSpan, Spanned},
     stages::parse::{
         ast::{ASTWord, ASTWordVar},
         lexer::TokenKind,
@@ -14,9 +13,10 @@ use crate::{
 };
 
 #[must_use]
-pub fn word_parser<'src, I>() -> impl Parser<'src, I, ASTWord, Err<Rich<'src, TokenKind>>>
+pub fn word_parser<'src, I>()
+-> impl Parser<'src, I, ASTWord, Err<Rich<'src, TokenKind, SourceSpan>>>
 where
-    I: ValueInput<'src, Token = TokenKind, Span = SimpleSpan>,
+    I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
     let attributes = just(TokenKind::Hash)
         .ignore_then(
@@ -29,7 +29,7 @@ where
             ),
         )
         .map_with(|name, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             Spanned::new(name, span)
         });
 
@@ -37,21 +37,21 @@ where
         TokenKind::Ident(name) => name,
     }
     .map_with(|name, extra| {
-        let span: SimpleSpan = extra.span();
+        let span: SourceSpan = extra.span();
         Spanned::new(name, span)
     });
 
     let stack_var = just(TokenKind::Ellipsis)
         .ignore_then(select! { TokenKind::Ident(name) => name })
         .map_with(|name, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             ASTWordVar::Stack {
                 name: Spanned::new(name, span),
             }
         });
     let type_var = select! { TokenKind::Ident(name) => name }
         .map_with(|name, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             Spanned::new(name, span)
         })
         .then(
@@ -61,7 +61,7 @@ where
                         TokenKind::Ident(name) => name,
                     }
                     .map_with(|name, extra| {
-                        let span: SimpleSpan = extra.span();
+                        let span: SourceSpan = extra.span();
                         Spanned::new(name, span)
                     })
                     .separated_by(just(TokenKind::Plus))
@@ -94,7 +94,7 @@ where
     .then(
         stack_effect_parser()
             .map_with(|effect, extra| {
-                let span: SimpleSpan = extra.span();
+                let span: SourceSpan = extra.span();
                 Spanned::new(effect, span)
             })
             .labelled("Stack effect was expected")
@@ -107,7 +107,7 @@ where
     .then(
         instruction_parser()
             .map_with(|instruction, extra| {
-                let span: SimpleSpan = extra.span();
+                let span: SourceSpan = extra.span();
                 Spanned::new(instruction, span)
             })
             .repeated()

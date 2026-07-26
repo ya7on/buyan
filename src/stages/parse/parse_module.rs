@@ -1,19 +1,19 @@
 use chumsky::{
     IterParser, Parser, error::Rich, extra::Err, input::ValueInput, prelude::just, select,
-    span::SimpleSpan,
 };
 
 use crate::{
-    common::{DottedPath, Spanned},
+    common::{DottedPath, SourceSpan, Spanned},
     stages::parse::{
         ast::ASTModule, lexer::TokenKind, parse_struct::struct_parser, parse_word::word_parser,
     },
 };
 
 #[must_use]
-pub fn module_parser<'src, I>() -> impl Parser<'src, I, ASTModule, Err<Rich<'src, TokenKind>>>
+pub fn module_parser<'src, I>()
+-> impl Parser<'src, I, ASTModule, Err<Rich<'src, TokenKind, SourceSpan>>>
 where
-    I: ValueInput<'src, Token = TokenKind, Span = SimpleSpan>,
+    I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
     let import_parser = just(TokenKind::KeywordImport)
         .ignore_then(
@@ -24,7 +24,7 @@ where
         )
         .then_ignore(just(TokenKind::Semicolon))
         .map_with(|name, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             Spanned::new(DottedPath(name), span)
         });
 
@@ -37,7 +37,7 @@ where
         )
         .then_ignore(just(TokenKind::Semicolon).labelled("; was expected after module name"))
         .map_with(|name, extra| {
-            let span: SimpleSpan = extra.span();
+            let span: SourceSpan = extra.span();
             Spanned::new(DottedPath(name), span)
         });
 
@@ -48,7 +48,7 @@ where
         .then(
             struct_parser()
                 .map_with(|item, extra| {
-                    let span: SimpleSpan = extra.span();
+                    let span: SourceSpan = extra.span();
                     Spanned::new(item, span)
                 })
                 .repeated()
@@ -57,7 +57,7 @@ where
         .then(
             word_parser()
                 .map_with(|word, extra| {
-                    let span: SimpleSpan = extra.span();
+                    let span: SourceSpan = extra.span();
                     Spanned::new(word, span)
                 })
                 .repeated()

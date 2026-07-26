@@ -1,23 +1,36 @@
-use chumsky::span::SimpleSpan;
+use chumsky::span::Span as ChumskySpan;
 use logos::Logos;
 
-use crate::{common::Span, error::CompileError};
+use crate::{
+    common::{SourceId, SourceSpan},
+    error::CompileError,
+};
 
 pub struct LexInput {
     pub content: String,
+    pub source_id: SourceId,
 }
 
 #[derive(Debug)]
 pub struct LexResult {
-    pub tokens: Vec<(TokenKind, SimpleSpan)>,
+    pub tokens: Vec<(TokenKind, SourceSpan)>,
 }
 
 pub fn lex(input: LexInput) -> Result<LexResult, Vec<CompileError>> {
     let mut tokens = Vec::new();
-    for (token, span) in TokenKind::lexer(&input.content).spanned() {
-        tokens.push((token.map_err(|err| vec![err])?, SimpleSpan::from(span)));
+    let mut errors = Vec::new();
+    for (token, range) in TokenKind::lexer(&input.content).spanned() {
+        let span = SourceSpan::new(input.source_id, range);
+        match token {
+            Ok(token) => tokens.push((token, span)),
+            Err(_) => errors.push(CompileError::UnexpectedToken { span: span.into() }),
+        }
     }
-    Ok(LexResult { tokens })
+    if errors.is_empty() {
+        Ok(LexResult { tokens })
+    } else {
+        Err(errors)
+    }
 }
 
 fn unescape_string_literal(raw: &str) -> String {
@@ -51,18 +64,7 @@ fn unescape_string_literal(raw: &str) -> String {
     result
 }
 
-fn map_err(err: &mut logos::Lexer<TokenKind>) -> CompileError {
-    let span = err.span();
-    CompileError::UnexpectedToken {
-        span: Span {
-            start: span.start,
-            end: span.end,
-        },
-    }
-}
-
 #[derive(Logos, Debug, PartialEq, Clone)]
-#[logos(error(CompileError, map_err))]
 pub enum TokenKind {
     #[regex(r"[ \t\n\r]+", logos::skip)]
     #[regex(r"//[^\n]*", logos::skip, allow_greedy = true)]

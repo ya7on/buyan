@@ -1,72 +1,89 @@
-use crate::error::CompileError;
+use crate::error::{CompileError, Diagnostics};
+
+pub struct StageResult<T> {
+    output: Option<T>,
+    diagnostics: Diagnostics,
+}
+
+impl<T> StageResult<T> {
+    pub fn success(output: T) -> Self {
+        Self {
+            output: Some(output),
+            diagnostics: Diagnostics::default(),
+        }
+    }
+
+    pub fn new(output: Option<T>, diagnostics: Diagnostics) -> Self {
+        Self {
+            output,
+            diagnostics,
+        }
+    }
+}
 
 pub struct PipelineBuilder<O, C> {
-    prev: Result<O, Vec<CompileError>>,
-    context: C,
+    prev: Option<O>,
+    pub context: C,
+    pub diagnostics: Diagnostics,
 }
 
 impl<O, C: Default> PipelineBuilder<O, C> {
     pub fn new(init: O) -> Self {
         Self {
-            prev: Ok(init),
+            prev: Some(init),
             context: C::default(),
+            diagnostics: Diagnostics::default(),
         }
     }
 
-    pub fn stage_initialized<T>(mut self, mut stage: T) -> PipelineBuilder<T::Output, C>
+    pub fn stage<T>(mut self, mut stage: T) -> PipelineBuilder<T::Output, C>
     where
         T: Stage<C, Input = O>,
     {
-        let prev = match self.prev {
-            Ok(prev) => prev,
-            Err(errors) => {
-                return PipelineBuilder {
-                    prev: Err(errors),
-                    context: self.context,
-                };
-            }
+        if self.diagnostics.fatal {
+            return PipelineBuilder {
+                prev: None,
+                context: self.context,
+                diagnostics: self.diagnostics,
+            };
+        }
+
+        let Some(prev) = self.prev else {
+            return PipelineBuilder {
+                prev: None,
+                context: self.context,
+                diagnostics: self.diagnostics,
+            };
         };
-        let result = stage.execute(prev, &mut self.context);
-        match result {
-            Ok(output) => PipelineBuilder {
-                prev: Ok(output),
-                context: self.context,
-            },
-            Err(error) => PipelineBuilder {
-                prev: Err(error),
-                context: self.context,
-            },
+        let outcome = stage.execute(prev, &mut self.context);
+        self.diagnostics.append(outcome.diagnostics);
+        PipelineBuilder {
+            prev: outcome.output,
+            context: self.context,
+            diagnostics: self.diagnostics,
         }
-    }
-
-    pub fn stage<T>(self) -> PipelineBuilder<T::Output, C>
-    where
-        T: Stage<C, Input = O>,
-    {
-        let stage = T::default();
-        self.stage_initialized(stage)
     }
 
     pub fn dump(&self) -> Result<&O, &Vec<CompileError>> {
-        self.prev.as_ref()
-    }
-
-    pub fn context(&self) -> &C {
-        &self.context
+        if !self.diagnostics.errors.is_empty() {
+            Err(&self.diagnostics.errors)
+        } else {
+            self.prev.as_ref().ok_or(&self.diagnostics.errors)
+        }
     }
 
     pub fn finish(self) -> Result<O, Vec<CompileError>> {
-        self.prev
+        if !self.diagnostics.errors.is_empty() {
+            Err(self.diagnostics.errors)
+        } else {
+            self.prev.ok_or_else(Vec::new)
+        }
     }
 }
 
-pub trait Stage<C>: Default {
+pub trait Stage<C> {
     type Input;
     type Output;
 
-    fn execute(
-        &mut self,
-        input: Self::Input,
-        context: &mut C,
-    ) -> Result<Self::Output, Vec<CompileError>>;
+    fn execute(&mut self, input: Self::Input, context: &mut C) -> StageResult<Self::Output>;
 }
