@@ -189,6 +189,12 @@ impl IRInterpreter {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs == rhs));
                         }
+                        (IRValue::String(lhs), IRValue::String(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs == rhs));
+                        }
+                        (IRValue::Bool(lhs), IRValue::Bool(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs == rhs));
+                        }
                         _ => todo!(),
                     }
                 }
