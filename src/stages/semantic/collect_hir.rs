@@ -5,12 +5,12 @@ use crate::{
     error::CompileError,
     pipeline::Stage,
     stages::{
-        parse::ast::{ASTInstruction, ASTLiteral, ASTModule, ASTProgram, ASTWord},
+        parse::ast::{ASTInstruction, ASTLiteral, ASTModule, ASTProgram, ASTStruct, ASTWord},
         semantic::{
             context::{HIRContext, SymbolKind},
             hir::{
-                HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRWord, HIRWordAttribute,
-                HIRWordSignature,
+                HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRStruct, HIRWord,
+                HIRWordAttribute, HIRWordSignature,
             },
         },
     },
@@ -51,6 +51,38 @@ impl CollectHIRStage {
                     symbol_id,
                 })
             }
+            ASTInstruction::Pack(name) | ASTInstruction::Unpack(name) => {
+                let Some(struct_id) = (name.len() == 1)
+                    .then(|| module.name.extend(name))
+                    .as_ref()
+                    .into_iter()
+                    .chain(std::iter::once(name))
+                    .find_map(|name| match hir_ctx.lookup_and_get(name) {
+                        Some((id, SymbolKind::Struct { .. })) => Some(id),
+                        _ => None,
+                    })
+                else {
+                    return Err(vec![CompileError::SymbolNotFound {
+                        name: name.to_string(),
+                        span: instruction.span,
+                    }]);
+                };
+                let full_name = match hir_ctx.get(struct_id) {
+                    Some(SymbolKind::Struct { name, .. }) => name.clone(),
+                    _ => name.to_string(),
+                };
+                if matches!(instruction.value, ASTInstruction::Pack(_)) {
+                    Ok(HIRInstruction::Pack {
+                        name: full_name,
+                        struct_id,
+                    })
+                } else {
+                    Ok(HIRInstruction::Unpack {
+                        name: full_name,
+                        struct_id,
+                    })
+                }
+            }
             ASTInstruction::Lambda { stack_effect, body } => {
                 let mut result_stack_in = Vec::with_capacity(stack_effect.stack_in.len());
                 let mut result_stack_out = Vec::with_capacity(stack_effect.stack_out.len());
@@ -60,13 +92,13 @@ impl CollectHIRStage {
 
                 for item in &stack_effect.stack_in {
                     let ty = hir_ctx
-                        .handle_stack_item(&wordpath, item)
+                        .handle_stack_item(&module.name, &wordpath, item)
                         .map_err(|err| vec![err])?;
                     result_stack_in.push(ty);
                 }
                 for item in &stack_effect.stack_out {
                     let ty = hir_ctx
-                        .handle_stack_item(&wordpath, item)
+                        .handle_stack_item(&module.name, &wordpath, item)
                         .map_err(|err| vec![err])?;
                     result_stack_out.push(ty);
                 }
@@ -82,6 +114,26 @@ impl CollectHIRStage {
                 })
             }
         }
+    }
+
+    fn analyze_struct(
+        module: &ASTModule,
+        item: &ASTStruct,
+        hir_ctx: &HIRContext,
+    ) -> Result<HIRStruct, Vec<CompileError>> {
+        let fullpath = module.name.append(item.name.as_str());
+        let Some((id, SymbolKind::Struct { fields, .. })) = hir_ctx.lookup_and_get(&fullpath)
+        else {
+            return Err(vec![CompileError::SymbolNotFound {
+                name: fullpath.to_string(),
+                span: item.name.span,
+            }]);
+        };
+        Ok(HIRStruct {
+            id,
+            name: Spanned::new(fullpath.to_string(), item.name.span),
+            fields: fields.clone(),
+        })
     }
 
     fn analyze_word(
@@ -175,6 +227,14 @@ impl CollectHIRStage {
             imports.push(Spanned::new(import_id, import.span));
         }
 
+        let mut structs = vec![];
+        for item in &module.structs {
+            structs.push(Spanned::new(
+                Self::analyze_struct(module, item, hir_ctx)?,
+                item.span,
+            ));
+        }
+
         let mut words = vec![];
         for (index, word) in module.words.iter().enumerate() {
             words.push(Spanned::new(
@@ -186,6 +246,7 @@ impl CollectHIRStage {
         Ok(HIRModule {
             id: module_id,
             imports,
+            structs,
             words,
         })
     }

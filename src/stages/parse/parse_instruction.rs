@@ -3,7 +3,7 @@ use chumsky::{
     error::Rich,
     extra::Err,
     input::ValueInput,
-    prelude::{just, recursive},
+    prelude::{choice, just, recursive},
     select,
     span::SimpleSpan,
 };
@@ -29,13 +29,24 @@ where
             TokenKind::LiteralU8(value) => ASTInstruction::Literal(ASTLiteral::U8(value)),
         };
 
-        let call = select! {
+        let path = select! {
             TokenKind::Ident(name) => name,
         }
         .separated_by(just(TokenKind::Dot))
         .at_least(1)
         .collect::<Vec<_>>()
-        .map(|path| ASTInstruction::Call(DottedPath(path)));
+        .map(DottedPath);
+
+        let pack = just(TokenKind::GreaterThan)
+            .ignore_then(path.clone())
+            .map(ASTInstruction::Pack);
+
+        let unpack = path
+            .clone()
+            .then_ignore(just(TokenKind::GreaterThan))
+            .map(ASTInstruction::Unpack);
+
+        let call = path.map(ASTInstruction::Call);
 
         let lambda = stack_effect_parser()
             .delimited_by(just(TokenKind::Pipe), just(TokenKind::Pipe))
@@ -55,6 +66,6 @@ where
             )
             .map(|(stack_effect, body)| ASTInstruction::Lambda { stack_effect, body });
 
-        lambda.or(literal).or(call)
+        choice((lambda, literal, pack, unpack, call))
     })
 }

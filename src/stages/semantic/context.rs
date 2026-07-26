@@ -4,7 +4,7 @@ use crate::{
     common::{DottedPath, Spanned},
     error::CompileError,
     stages::{
-        parse::ast::{ASTModule, ASTStackEffectItem, ASTWord, ASTWordVar},
+        parse::ast::{ASTModule, ASTStackEffectItem, ASTStruct, ASTWord, ASTWordVar},
         semantic::hir::HIRType,
     },
 };
@@ -46,6 +46,10 @@ pub enum SymbolKind {
     Type {
         name: String,
         traits: Vec<SymbolId>,
+    },
+    Struct {
+        name: String,
+        fields: Vec<Spanned<HIRType>>,
     },
 }
 
@@ -209,14 +213,17 @@ impl HIRContext {
 
     pub fn register_word(
         &mut self,
-        module_id: SymbolId,
+        module_name: &DottedPath,
         word: &ASTWord,
     ) -> Result<SymbolId, CompileError> {
-        let Some(SymbolKind::Module { name: module_name }) = self.get(module_id) else {
+        if !matches!(
+            self.lookup_and_get(module_name),
+            Some((_, SymbolKind::Module { .. }))
+        ) {
             return Err(CompileError::Unknown {
                 label: "Invalid module for word".to_string(),
             });
-        };
+        }
         let wordpath = module_name.append(word.name.as_str()); // TODO FIXME
 
         let mut typevars = Vec::new();
@@ -273,14 +280,14 @@ impl HIRContext {
         let mut stack_in = Vec::new();
         for item in &word.stack_effect.stack_in {
             stack_in.push(Spanned::new(
-                self.handle_stack_item(&wordpath, item)?,
+                self.handle_stack_item(module_name, &wordpath, item)?,
                 item.span,
             ));
         }
         let mut stack_out = Vec::new();
         for item in &word.stack_effect.stack_out {
             stack_out.push(Spanned::new(
-                self.handle_stack_item(&wordpath, item)?,
+                self.handle_stack_item(module_name, &wordpath, item)?,
                 item.span,
             ));
         }
@@ -300,33 +307,64 @@ impl HIRContext {
         })
     }
 
+    pub fn register_struct(
+        &mut self,
+        module_id: SymbolId,
+        item: &ASTStruct,
+        fields: Vec<Spanned<HIRType>>,
+    ) -> Result<SymbolId, CompileError> {
+        let Some(SymbolKind::Module { name: module_name }) = self.get(module_id) else {
+            return Err(CompileError::Unknown {
+                label: "Invalid module for struct".to_string(),
+            });
+        };
+        let fullpath = module_name.append(item.name.as_str());
+        let display_name = fullpath.to_string();
+        self.register(
+            &fullpath,
+            SymbolKind::Struct {
+                name: display_name.clone(),
+                fields,
+            },
+        )
+        .ok_or(CompileError::SymbolAlreadyExists {
+            name: display_name,
+            span: item.name.span,
+        })
+    }
+
     pub fn handle_stack_item(
         &self,
+        module_name: &DottedPath,
         wordpath: &DottedPath,
         item: &Spanned<ASTStackEffectItem>,
     ) -> Result<HIRType, CompileError> {
         match &item.value {
             ASTStackEffectItem::Symbol { name } => {
-                'typevar: {
-                    let Some((id, SymbolKind::TypeVar { .. })) =
-                        self.lookup_and_get(&wordpath.append(name))
-                    else {
-                        break 'typevar;
-                    };
+                if name.len() == 1
+                    && let Some((id, SymbolKind::TypeVar { .. })) =
+                        self.lookup_and_get(&wordpath.extend(name))
+                {
                     return Ok(HIRType::TypeVar(id));
-                };
-                'global: {
-                    let Some((id, SymbolKind::Type { .. })) =
-                        self.lookup_and_get(&DottedPath::parse(name))
-                    else {
-                        break 'global;
-                    };
-                    return Ok(HIRType::BuiltIn(id));
-                };
-                Err(CompileError::SymbolNotFound {
-                    name: name.to_owned(),
-                    span: item.span,
-                })
+                }
+
+                (name.len() == 1)
+                    .then(|| module_name.extend(name))
+                    .as_ref()
+                    .into_iter()
+                    .chain(std::iter::once(name))
+                    .find_map(|name| {
+                        let (id, kind) = self.lookup_and_get(name)?;
+                        match kind {
+                            SymbolKind::Type { .. } => Some(HIRType::BuiltIn(id)),
+                            SymbolKind::Struct { .. } => Some(HIRType::Struct(id)),
+                            _ => None,
+                        }
+                    })
+                    .ok_or_else(|| CompileError::SymbolNotFound {
+                        name: name.to_string(),
+                        span: item.span,
+                    })
             }
             ASTStackEffectItem::StackVar { name } => {
                 let Some((id, SymbolKind::StackVar { .. })) =
@@ -343,12 +381,12 @@ impl HIRContext {
                 let stack_in = stack_effect
                     .stack_in
                     .iter()
-                    .map(|item| self.handle_stack_item(wordpath, item))
+                    .map(|item| self.handle_stack_item(module_name, wordpath, item))
                     .collect::<Result<Vec<_>, _>>()?;
                 let stack_out = stack_effect
                     .stack_out
                     .iter()
-                    .map(|item| self.handle_stack_item(wordpath, item))
+                    .map(|item| self.handle_stack_item(module_name, wordpath, item))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(HIRType::Lambda {
                     stack_in,

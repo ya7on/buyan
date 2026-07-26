@@ -9,7 +9,14 @@ pub struct ASTProgram {
 pub struct ASTModule {
     pub name: Spanned<DottedPath>,
     pub imports: Vec<Spanned<DottedPath>>,
+    pub structs: Vec<Spanned<ASTStruct>>,
     pub words: Vec<Spanned<ASTWord>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ASTStruct {
+    pub name: Spanned<String>,
+    pub fields: Vec<Spanned<DottedPath>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -41,7 +48,7 @@ pub struct ASTStackEffect {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ASTStackEffectItem {
     Symbol {
-        name: String,
+        name: DottedPath,
     },
     StackVar {
         name: String,
@@ -61,6 +68,8 @@ pub enum ASTLiteral {
 pub enum ASTInstruction {
     Literal(ASTLiteral),
     Call(DottedPath),
+    Pack(DottedPath),
+    Unpack(DottedPath),
     Lambda {
         stack_effect: Spanned<ASTStackEffect>,
         body: Vec<Spanned<ASTInstruction>>,

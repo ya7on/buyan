@@ -104,6 +104,26 @@ impl CallAnalysis {
         Ok(())
     }
 
+    fn unify_struct(&mut self, top: HIRType, expected: SymbolId) -> Result<(), CompileError> {
+        if top != HIRType::Struct(expected) {
+            return Err(CompileError::InvalidStack {
+                label: "type mismatch".to_string(),
+                expected_stack: self
+                    .expected_stack_in
+                    .iter()
+                    .map(|item| format!("{item:?}"))
+                    .collect(),
+                actual_stack: self
+                    .initial_stack
+                    .iter()
+                    .map(|item| format!("{item:?}"))
+                    .collect(),
+                span: self.span,
+            });
+        }
+        Ok(())
+    }
+
     fn unify_lambda(
         &mut self,
         top: HIRType,
@@ -193,6 +213,9 @@ impl CallAnalysis {
         match expected {
             HIRType::BuiltIn(symbol_id) => {
                 self.unify_builtin(actual, symbol_id)?;
+            }
+            HIRType::Struct(symbol_id) => {
+                self.unify_struct(actual, symbol_id)?;
             }
             HIRType::TypeVar(symbol_id) => {
                 self.unify_typevar(actual, symbol_id)?;
@@ -337,6 +360,7 @@ impl CallAnalysis {
     fn substitute_type_value(&self, ty: &HIRType) -> Result<HIRType, CompileError> {
         match ty {
             HIRType::BuiltIn(symbol_id) => Ok(HIRType::BuiltIn(*symbol_id)),
+            HIRType::Struct(symbol_id) => Ok(HIRType::Struct(*symbol_id)),
 
             HIRType::TypeVar(symbol_id) => self.resolve_typevar(*symbol_id),
 

@@ -1,4 +1,7 @@
-use crate::{common::Spanned, stages::lower::context::WordId};
+use crate::{
+    common::Spanned,
+    stages::lower::context::{TypeId, WordId},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BasicBlockId(pub usize);
@@ -44,6 +47,8 @@ pub enum IRInstruction {
     PushLambda { word_id: WordId },
     CallDirect { word_id: WordId },
     CallIndirect,
+    Pack { type_id: TypeId, field_count: usize },
+    Unpack { type_id: TypeId },
     Drop,
     Dup,
     Swap,

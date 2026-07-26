@@ -3,7 +3,7 @@ use crate::{
     error::CompileError,
     pipeline::Stage,
     stages::{
-        lower::context::{IRContext, WordIRInfo},
+        lower::context::{IRContext, TypeIRInfo, WordIRInfo},
         semantic::{
             context::{HIRContext, SymbolKind},
             hir::HIRProgram,
@@ -25,6 +25,25 @@ impl Stage<CompileContext> for CollectSymbolsStage {
     ) -> Result<Self::Output, Vec<CompileError>> {
         let mut errors = Vec::new();
         let mut ir_ctx = IRContext::default();
+
+        for module in &hir_program.modules {
+            for item in &module.structs {
+                let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(item.id) else {
+                    errors.push(CompileError::SymbolNotFound {
+                        name: item.name.to_string(),
+                        span: item.span,
+                    });
+                    continue;
+                };
+                ir_ctx.register_type(
+                    item.id,
+                    TypeIRInfo {
+                        name: item.name.to_string(),
+                        field_count: fields.len(),
+                    },
+                );
+            }
+        }
 
         for module in &hir_program.modules {
             for word in &module.words {

@@ -3,7 +3,7 @@ use crate::{
     error::CompileError,
     pipeline::Stage,
     stages::lower::{
-        context::{IRContext, WordId},
+        context::{IRContext, TypeId, WordId},
         ir::{BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator},
     },
 };
@@ -14,6 +14,10 @@ pub enum IRValue {
     U8(u8),
     String(String),
     Lambda(WordId),
+    Struct {
+        type_id: TypeId,
+        fields: Vec<IRValue>,
+    },
 }
 
 impl IRValue {
@@ -78,6 +82,33 @@ impl IRInterpreter {
                         IRValue::Lambda(word_id) => self.execute_word(program, word_id),
                         _ => panic!("indirect call expects lambda"),
                     }
+                }
+                IRInstruction::Pack {
+                    type_id,
+                    field_count,
+                } => {
+                    let start = self
+                        .stack
+                        .len()
+                        .checked_sub(*field_count)
+                        .expect("stack underflow");
+                    let fields = self.stack.split_off(start);
+                    self.stack.push(IRValue::Struct {
+                        type_id: *type_id,
+                        fields,
+                    });
+                }
+                IRInstruction::Unpack { type_id } => {
+                    let value = self.stack.pop().expect("stack underflow");
+                    let IRValue::Struct {
+                        type_id: actual_type_id,
+                        fields,
+                    } = value
+                    else {
+                        panic!("unpack expects struct");
+                    };
+                    assert_eq!(actual_type_id, *type_id, "struct type mismatch");
+                    self.stack.extend(fields);
                 }
                 IRInstruction::Swap => {
                     let rhs = self.stack.pop().expect("stack underflow");

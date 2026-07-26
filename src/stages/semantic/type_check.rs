@@ -58,6 +58,32 @@ impl TypeCheckStage {
                     stack_analysis.push(HIRType::BuiltIn(symbol_id));
                 }
             },
+            HIRInstruction::Pack { name, struct_id } => {
+                let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(*struct_id) else {
+                    return Err(CompileError::SymbolNotFound {
+                        name: name.clone(),
+                        span: instruction.span,
+                    });
+                };
+                stack_analysis.apply_call(
+                    fields.iter().map(|item| item.value.clone()).collect(),
+                    vec![HIRType::Struct(*struct_id)],
+                    instruction.span,
+                )?;
+            }
+            HIRInstruction::Unpack { name, struct_id } => {
+                let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(*struct_id) else {
+                    return Err(CompileError::SymbolNotFound {
+                        name: name.clone(),
+                        span: instruction.span,
+                    });
+                };
+                stack_analysis.apply_call(
+                    vec![HIRType::Struct(*struct_id)],
+                    fields.iter().map(|item| item.value.clone()).collect(),
+                    instruction.span,
+                )?;
+            }
             HIRInstruction::Lambda {
                 stack_in,
                 stack_out,

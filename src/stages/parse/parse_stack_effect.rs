@@ -9,7 +9,7 @@ use chumsky::{
 };
 
 use crate::{
-    common::Spanned,
+    common::{DottedPath, Spanned},
     stages::parse::{
         ast::{ASTStackEffect, ASTStackEffectItem},
         lexer::TokenKind,
@@ -28,7 +28,12 @@ where
                 .map(|name| ASTStackEffectItem::StackVar { name }),
         );
         let typed = select! { TokenKind::Ident(name) => name }
-            .map(|name| ASTStackEffectItem::Symbol { name });
+            .separated_by(just(TokenKind::Dot))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .map(|name| ASTStackEffectItem::Symbol {
+                name: DottedPath(name),
+            });
         let lambda = ty
             .clone()
             .map_with(|instr, extra| {

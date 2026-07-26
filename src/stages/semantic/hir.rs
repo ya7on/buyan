@@ -11,7 +11,15 @@ pub struct HIRProgram {
 pub struct HIRModule {
     pub id: SymbolId,
     pub imports: Vec<Spanned<SymbolId>>,
+    pub structs: Vec<Spanned<HIRStruct>>,
     pub words: Vec<Spanned<HIRWord>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HIRStruct {
+    pub id: SymbolId,
+    pub name: Spanned<String>,
+    pub fields: Vec<Spanned<HIRType>>,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +49,7 @@ pub struct HIRWord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HIRType {
     BuiltIn(SymbolId),
+    Struct(SymbolId),
     TypeVar(SymbolId),
     StackVar(SymbolId),
     Lambda {
@@ -61,6 +70,14 @@ pub enum HIRInstruction {
         name: String,
         symbol_id: SymbolId,
         // substitutions: HashMap<SymbolId, SymbolId>,
+    },
+    Pack {
+        name: String,
+        struct_id: SymbolId,
+    },
+    Unpack {
+        name: String,
+        struct_id: SymbolId,
     },
     Literal(HIRLiteral),
     Lambda {

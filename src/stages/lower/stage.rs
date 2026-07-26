@@ -195,6 +195,42 @@ impl LowerStage {
                         ));
                     }
                 },
+                HIRInstruction::Pack { name, struct_id } => {
+                    let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
+                        errors.push(CompileError::SymbolNotFound {
+                            name: name.clone(),
+                            span: instruction.span,
+                        });
+                        continue;
+                    };
+                    let Some(type_info) = ir_ctx.get_type(type_id) else {
+                        errors.push(CompileError::SymbolNotFound {
+                            name: name.clone(),
+                            span: instruction.span,
+                        });
+                        continue;
+                    };
+                    basicblock.push(Spanned::new(
+                        IRInstruction::Pack {
+                            type_id,
+                            field_count: type_info.field_count,
+                        },
+                        instruction.span,
+                    ));
+                }
+                HIRInstruction::Unpack { name, struct_id } => {
+                    let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
+                        errors.push(CompileError::SymbolNotFound {
+                            name: name.clone(),
+                            span: instruction.span,
+                        });
+                        continue;
+                    };
+                    basicblock.push(Spanned::new(
+                        IRInstruction::Unpack { type_id },
+                        instruction.span,
+                    ));
+                }
                 HIRInstruction::Lambda {
                     stack_in: _,
                     stack_out: _,

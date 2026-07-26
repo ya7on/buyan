@@ -133,3 +133,57 @@ fn test_intrinsics_attribute() {
     .check()
     .assert_parse_ok();
 }
+
+#[test]
+fn test_struct_pack_unpack() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct Point(u8, u8);
+        def main( -- u8, u8)
+            2u8 3u8 >Point Point>
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok();
+}
+
+#[test]
+fn test_empty_and_qualified_struct_syntax() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import geometry;
+        module app;
+        struct Unit();
+        def main( -- geometry.Point)
+            2u8 3u8 >geometry.Point
+        end
+        "#,
+    ))
+    .add_file((
+        "geometry.by",
+        r#"
+        module geometry;
+        struct Point(u8, u8);
+        "#,
+    ))
+    .check()
+    .assert_parse_ok();
+}
+
+#[test]
+fn test_struct_after_word_is_invalid() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        def main( -- ) end
+        struct Point(u8, u8);
+        "#,
+    ))
+    .check()
+    .assert_parse_err(|err| matches!(err, CompileError::ParseError { .. }));
+}

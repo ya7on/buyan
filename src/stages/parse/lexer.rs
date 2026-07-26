@@ -84,6 +84,8 @@ pub enum TokenKind {
     KeywordModule,
     #[token("def")]
     KeywordDef,
+    #[token("struct")]
+    KeywordStruct,
     #[token("end")]
     KeywordEnd,
 

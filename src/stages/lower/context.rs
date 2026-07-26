@@ -11,7 +11,7 @@ impl WordId {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TypeId(pub usize);
 
 impl TypeId {
@@ -28,6 +28,7 @@ pub struct WordIRInfo {
 #[derive(Debug)]
 pub struct TypeIRInfo {
     pub name: String,
+    pub field_count: usize,
 }
 
 #[derive(Default)]

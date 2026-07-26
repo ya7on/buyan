@@ -278,3 +278,153 @@ fn test_if() {
     .assert_parse_ok()
     .assert_hir_ok();
 }
+
+#[test]
+fn test_struct_roundtrip() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct Pair(u8, string);
+        def main( -- u8, string)
+            7u8 "seven" >Pair Pair>
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
+
+#[test]
+fn test_nested_struct_with_forward_reference() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct Outer(Inner, u8);
+        struct Inner(string);
+        def main( -- Outer)
+            "value" >Inner 7u8 >Outer
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
+
+#[test]
+fn test_qualified_struct() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import geometry;
+        module app;
+        def main( -- geometry.Point)
+            2u8 3u8 >geometry.Point
+        end
+        "#,
+    ))
+    .add_file((
+        "geometry.by",
+        r#"
+        module geometry;
+        struct Point(u8, u8);
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
+
+#[test]
+fn test_struct_dependency_from_imported_module() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        import geometry;
+        module app;
+        struct Segment(geometry.Point, geometry.Point);
+        def main( -- Segment)
+            1u8 2u8 >geometry.Point
+            3u8 4u8 >geometry.Point
+            >Segment
+        end
+        "#,
+    ))
+    .add_file((
+        "geometry.by",
+        r#"
+        module geometry;
+        struct Point(u8, u8);
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_ok();
+}
+
+#[test]
+fn test_struct_pack_type_mismatch() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct Pair(u8, string);
+        def main( -- Pair)
+            "wrong" 7u8 >Pair
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}
+
+#[test]
+fn test_unpack_wrong_struct() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct A(u8);
+        struct B(u8);
+        def main( -- u8)
+            7u8 >A B>
+        end
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::InvalidStack { .. }));
+}
+
+#[test]
+fn test_unknown_struct_field() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct Wrapper(Missing);
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::SymbolNotFound { .. }));
+}
+
+#[test]
+fn test_recursive_struct() {
+    TestExecutor::input((
+        "app.by",
+        r#"
+        module app;
+        struct A(B);
+        struct B(A);
+        "#,
+    ))
+    .check()
+    .assert_parse_ok()
+    .assert_hir_err(|err| matches!(err, CompileError::RecursiveStruct { .. }));
+}

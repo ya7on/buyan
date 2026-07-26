@@ -44,6 +44,8 @@ fn dump_stack_effect(buf: &mut String, item: &ASTStackEffect) -> Result<(), std:
 fn dump_instruction(buf: &mut String, instruction: &ASTInstruction) -> Result<(), std::fmt::Error> {
     match &instruction {
         ASTInstruction::Call(name) => write!(buf, "{name}")?,
+        ASTInstruction::Pack(name) => write!(buf, ">{name}")?,
+        ASTInstruction::Unpack(name) => write!(buf, "{name}>")?,
         ASTInstruction::Literal(ASTLiteral::String(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::U8(value)) => write!(buf, "{value}")?,
         ASTInstruction::Lambda { stack_effect, body } => {
@@ -106,8 +108,25 @@ fn dump_word(buf: &mut String, word: &ASTWord) -> Result<(), std::fmt::Error> {
     Ok(())
 }
 
+fn dump_struct(
+    buf: &mut String,
+    item: &crate::stages::parse::ast::ASTStruct,
+) -> Result<(), std::fmt::Error> {
+    let fields = item
+        .fields
+        .iter()
+        .map(|field| field.value.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    writeln!(buf, "struct {}({fields});\n", *item.name)
+}
+
 fn dump_module(buf: &mut String, module: &ASTModule) -> Result<(), std::fmt::Error> {
     writeln!(buf, "module \"{}\"\n", *module.name)?;
+
+    for item in &module.structs {
+        dump_struct(buf, item)?;
+    }
 
     for word in &module.words {
         dump_word(buf, word)?;

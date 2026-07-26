@@ -41,6 +41,10 @@ pub enum CompileError {
         name: String,
         span: Span,
     },
+    RecursiveStruct {
+        name: String,
+        span: Span,
+    },
     InvalidStack {
         label: String,
         span: Span,

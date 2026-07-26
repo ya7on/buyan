@@ -5,7 +5,9 @@ use chumsky::{
 
 use crate::{
     common::{DottedPath, Spanned},
-    stages::parse::{ast::ASTModule, lexer::TokenKind, parse_word::word_parser},
+    stages::parse::{
+        ast::ASTModule, lexer::TokenKind, parse_struct::struct_parser, parse_word::word_parser,
+    },
 };
 
 #[must_use]
@@ -44,17 +46,27 @@ where
         .collect::<Vec<_>>()
         .then(module_name_parser)
         .then(
-            word_parser()
-                .map_with(|func, extra| {
+            struct_parser()
+                .map_with(|item, extra| {
                     let span: SimpleSpan = extra.span();
-                    Spanned::new(func, span)
+                    Spanned::new(item, span)
                 })
                 .repeated()
                 .collect::<Vec<_>>(),
         )
-        .map(|((imports, name), words)| ASTModule {
+        .then(
+            word_parser()
+                .map_with(|word, extra| {
+                    let span: SimpleSpan = extra.span();
+                    Spanned::new(word, span)
+                })
+                .repeated()
+                .collect::<Vec<_>>(),
+        )
+        .map(|(((imports, name), structs), words)| ASTModule {
             imports,
             name,
+            structs,
             words,
         })
 }
