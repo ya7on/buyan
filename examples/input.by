@@ -1,0 +1,26 @@
+import std.io;
+import std.math;
+import std.cfg;
+
+module input_data;
+
+def main( -- )
+    "What is your name: "
+    std.io.print
+    std.io.flush
+    std.io.input
+
+    "Hello, "
+    std.io.print
+    std.io.print
+
+    "How old are you: "
+    std.io.print
+    std.io.flush
+    std.io.input
+
+    "67\n" std.math.eq
+    | -- | { "sixseven" std.io.println }
+    | -- | { "not sixseven" std.io.println }
+    std.cfg.if
+end

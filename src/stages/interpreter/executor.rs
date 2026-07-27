@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use crate::{
     common::CompileContext,
     error::{DiagnosticMessage, Diagnostics},
@@ -315,6 +317,18 @@ impl IRInterpreter {
                             print!("{value:?}");
                         }
                     }
+                }
+                IRInstruction::Input => {
+                    let mut input = String::new();
+                    std::io::stdin().read_line(&mut input).map_err(|_| {
+                        DiagnosticMessage::RuntimeError("failed to read from stdin")
+                    })?;
+                    self.stack.push(IRValue::String(input));
+                }
+                IRInstruction::Flush => {
+                    std::io::stdout()
+                        .flush()
+                        .map_err(|_| DiagnosticMessage::RuntimeError("failed to flush stdout"))?;
                 }
             }
         }

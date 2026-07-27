@@ -136,6 +136,12 @@ impl LowerStage {
                         "std.io.print" => {
                             basicblock.push(Spanned::new(IRInstruction::Print, instruction.span));
                         }
+                        "std.io.input" => {
+                            basicblock.push(Spanned::new(IRInstruction::Input, instruction.span));
+                        }
+                        "std.io.flush" => {
+                            basicblock.push(Spanned::new(IRInstruction::Flush, instruction.span));
+                        }
                         "std.stack.call" => {
                             basicblock
                                 .push(Spanned::new(IRInstruction::CallIndirect, instruction.span));

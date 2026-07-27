@@ -62,4 +62,6 @@ pub enum IRInstruction {
     Gt,
     Lt,
     Print,
+    Input,
+    Flush,
 }
