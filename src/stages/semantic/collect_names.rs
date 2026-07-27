@@ -144,9 +144,13 @@ impl Stage<CompileContext> for CollectNamesStage {
 
         register_structs(&input, &mut context, &mut diagnostics);
 
-        for module in &input.modules {
+        for (index, module) in input.modules.iter().enumerate() {
             for word in &module.words {
-                match context.register_word(&module.name, word) {
+                match context.register_word(
+                    &module.name,
+                    word,
+                    index == 0 && word.name.value == "main",
+                ) {
                     Ok(_) => {}
                     Err(err) => {
                         diagnostics.emit_fatal(err);

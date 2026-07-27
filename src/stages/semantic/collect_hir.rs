@@ -223,7 +223,6 @@ impl CollectHIRStage {
 
     fn analyze_word(
         module: &ASTModule,
-        is_root_module: bool,
         word: &ASTWord,
         hir_ctx: &HIRContext,
     ) -> Result<HIRWord, DiagnosticMessage> {
@@ -259,6 +258,7 @@ impl CollectHIRStage {
             stackvars,
             stack_in,
             stack_out,
+            entrypoint,
         } = symbol
         else {
             return Err(DiagnosticMessage::InvalidSymbol {
@@ -287,7 +287,7 @@ impl CollectHIRStage {
             },
             body,
             attributes,
-            entrypoint: is_root_module && word.name.value == "main",
+            entrypoint: *entrypoint,
             substitutions: HashMap::new(),
         })
     }
@@ -326,8 +326,8 @@ impl CollectHIRStage {
         }
 
         let mut words = vec![];
-        for (index, word) in module.words.iter().enumerate() {
-            match Self::analyze_word(module, index == 0, word, hir_ctx) {
+        for word in &module.words {
+            match Self::analyze_word(module, word, hir_ctx) {
                 Ok(analyzed) => words.push(Spanned::new(analyzed, word.name.span)),
                 Err(error) => diagnostics.emit_fatal(error),
             }

@@ -25,6 +25,7 @@ impl TypeCheckStage {
                     stackvars: _,
                     stack_in,
                     stack_out,
+                    entrypoint: _,
                 }) = hir_ctx.get(*symbol_id)
                 else {
                     return Err(DiagnosticMessage::SymbolNotFound {

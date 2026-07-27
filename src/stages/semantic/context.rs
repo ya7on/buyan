@@ -28,6 +28,7 @@ pub enum SymbolKind {
         stackvars: Vec<Spanned<SymbolId>>,
         stack_in: Vec<Spanned<HIRType>>,
         stack_out: Vec<Spanned<HIRType>>,
+        entrypoint: bool,
     },
     Lambda {
         stack_in: Vec<HIRType>,
@@ -252,6 +253,7 @@ impl HIRContext {
         &mut self,
         module_name: &DottedPath,
         word: &ASTWord,
+        entrypoint: bool,
     ) -> Result<SymbolId, DiagnosticMessage> {
         if !matches!(
             self.lookup_and_get(module_name),
@@ -336,6 +338,7 @@ impl HIRContext {
                 typevars,
                 stack_in,
                 stack_out,
+                entrypoint,
             },
         )
         .ok_or_else(|| DiagnosticMessage::SymbolAlreadyExists {
