@@ -6,7 +6,7 @@ use crate::common::executor::TestExecutor;
 
 impl TestExecutor {
     pub fn parse_ok(&self) -> bool {
-        self.ast.as_ref().map(|ast| ast.is_ok()).unwrap_or(false)
+        self.ast.as_ref().is_some_and(Result::is_ok)
     }
 
     pub fn assert_parse_ok(self) -> Self {
@@ -15,14 +15,11 @@ impl TestExecutor {
     }
 
     pub fn assert_parse_err(self, pred: impl Fn(&DiagnosticMessage) -> bool) -> Self {
-        assert!(self.ast.is_some());
-        assert!(self.ast.as_ref().unwrap().is_err());
+        let Some(Err(diagnostics)) = &self.ast else {
+            panic!("parse stage did not fail {:?}", self.ast);
+        };
         assert!(
-            self.ast
-                .as_ref()
-                .unwrap()
-                .as_ref()
-                .unwrap_err()
+            diagnostics
                 .iter()
                 .filter(|diagnostic| diagnostic.kind == DiagnosticKind::Error)
                 .map(|diagnostic| &diagnostic.message)

@@ -8,12 +8,13 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 struct Import {
     name: String,
     span: Span,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct UnusedImport {
     imports: Vec<Vec<Import>>,
 }

@@ -27,6 +27,7 @@ pub struct CallAnalysis<'a> {
 }
 
 impl<'a> CallAnalysis<'a> {
+    #[must_use]
     pub fn new(
         hir_ctx: &'a HIRContext,
         initial_stack: Vec<HIRType>,
@@ -45,10 +46,10 @@ impl<'a> CallAnalysis<'a> {
         }
     }
 
-    fn unify_builtin(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
+    fn unify_builtin(&self, top: &HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
         match top {
             HIRType::BuiltIn(symbol_id) => {
-                if symbol_id != expected {
+                if *symbol_id != expected {
                     return Err(DiagnosticMessage::InvalidStack {
                         label: "type mismatch".to_string(),
                         expected_stack: self
@@ -113,8 +114,8 @@ impl<'a> CallAnalysis<'a> {
         Ok(())
     }
 
-    fn unify_struct(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
-        if top != HIRType::Struct(expected) {
+    fn unify_struct(&self, top: &HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
+        if top != &HIRType::Struct(expected) {
             return Err(DiagnosticMessage::InvalidStack {
                 label: "type mismatch".to_string(),
                 expected_stack: self
@@ -161,8 +162,8 @@ impl<'a> CallAnalysis<'a> {
                 span: self.span,
             });
         };
-        self.unify_stack_exact(actual_stack_in, expected_stack_in.to_vec())?;
-        self.unify_stack_exact(actual_stack_out, expected_stack_out.to_vec())?;
+        self.unify_stack_exact(actual_stack_in, expected_stack_in)?;
+        self.unify_stack_exact(actual_stack_out, expected_stack_out)?;
         Ok(())
     }
 
@@ -229,7 +230,7 @@ impl<'a> CallAnalysis<'a> {
                 });
             }
         } else {
-            self.substitution.type_vars.insert(expected, top.clone());
+            self.substitution.type_vars.insert(expected, top);
         }
         Ok(())
     }
@@ -272,10 +273,10 @@ impl<'a> CallAnalysis<'a> {
     ) -> Result<(), DiagnosticMessage> {
         match expected {
             HIRType::BuiltIn(symbol_id) => {
-                self.unify_builtin(actual, symbol_id)?;
+                self.unify_builtin(&actual, symbol_id)?;
             }
             HIRType::Struct(symbol_id) => {
-                self.unify_struct(actual, symbol_id)?;
+                self.unify_struct(&actual, symbol_id)?;
             }
             HIRType::TypeVar(symbol_id) => {
                 self.unify_typevar(actual, symbol_id)?;
@@ -341,7 +342,7 @@ impl<'a> CallAnalysis<'a> {
     fn unify_stack_pair(
         &mut self,
         actual: Vec<HIRType>,
-        expected: Vec<HIRType>,
+        expected: &[HIRType],
     ) -> Result<Vec<HIRType>, DiagnosticMessage> {
         let mut actual = actual;
         for ty in expected.iter().rev() {
@@ -353,10 +354,10 @@ impl<'a> CallAnalysis<'a> {
     fn unify_stack_exact(
         &mut self,
         actual_stack: Vec<HIRType>,
-        expected_stack: Vec<HIRType>,
+        expected_stack: &[HIRType],
     ) -> Result<(), DiagnosticMessage> {
         let original_actual_stack = actual_stack.clone();
-        let rest = self.unify_stack_pair(actual_stack, expected_stack.clone())?;
+        let rest = self.unify_stack_pair(actual_stack, expected_stack)?;
 
         if !rest.is_empty() {
             return Err(DiagnosticMessage::InvalidStack {
@@ -378,7 +379,8 @@ impl<'a> CallAnalysis<'a> {
     }
 
     fn unify(&mut self) -> Result<(), DiagnosticMessage> {
-        self.stack = self.unify_stack_pair(self.stack.clone(), self.expected_stack_in.clone())?;
+        let expected_stack_in = self.expected_stack_in.clone();
+        self.stack = self.unify_stack_pair(self.stack.clone(), &expected_stack_in)?;
         Ok(())
     }
 
@@ -463,16 +465,12 @@ impl<'a> CallAnalysis<'a> {
         let mut result = Vec::new();
 
         for ty in stack {
-            match ty {
-                HIRType::StackVar(symbol_id) => {
-                    let resolved = self.resolve_stackvar(*symbol_id)?;
-                    result.extend(resolved);
-                }
-
-                _ => {
-                    let resolved = self.substitute_type_value(ty)?;
-                    result.push(resolved);
-                }
+            if let HIRType::StackVar(symbol_id) = ty {
+                let resolved = self.resolve_stackvar(*symbol_id)?;
+                result.extend(resolved);
+            } else {
+                let resolved = self.substitute_type_value(ty)?;
+                result.push(resolved);
             }
         }
 
@@ -489,31 +487,30 @@ impl<'a> CallAnalysis<'a> {
         Ok(())
     }
 
-    pub fn apply(&mut self) -> Result<Vec<HIRType>, DiagnosticMessage> {
+    fn apply(&mut self) -> Result<Vec<HIRType>, DiagnosticMessage> {
         self.unify()?;
         self.substitute()?;
         Ok(self.stack.clone())
     }
 }
 
+#[derive(Debug)]
 pub struct StackAnalysis<'a> {
     hir_ctx: &'a HIRContext,
     stack: Vec<HIRType>,
 }
 
 impl<'a> StackAnalysis<'a> {
-    pub fn new(hir_ctx: &'a HIRContext, initial_stack: Vec<HIRType>) -> Self {
-        Self {
-            hir_ctx,
-            stack: initial_stack.clone(),
-        }
+    #[must_use]
+    pub const fn new(hir_ctx: &'a HIRContext, stack: Vec<HIRType>) -> Self {
+        Self { hir_ctx, stack }
     }
 
     pub fn push(&mut self, ty: HIRType) {
         self.stack.push(ty);
     }
 
-    pub fn apply_call(
+    pub(crate) fn apply_call(
         &mut self,
         stack_in: Vec<HIRType>,
         stack_out: Vec<HIRType>,
@@ -525,9 +522,9 @@ impl<'a> StackAnalysis<'a> {
         Ok(())
     }
 
-    pub fn match_stack(
+    pub(crate) fn match_stack(
         &self,
-        expected_stack: Vec<HIRType>,
+        expected_stack: &[HIRType],
         span: Span,
         additional_spans: Vec<Span>,
     ) -> Result<(), DiagnosticMessage> {

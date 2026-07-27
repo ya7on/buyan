@@ -9,10 +9,11 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct TypeCheckStage;
 
 impl TypeCheckStage {
+    #[allow(clippy::too_many_lines)]
     fn type_check_instruction(
         hir_ctx: &HIRContext,
         instruction: &Spanned<HIRInstruction>,
@@ -29,7 +30,7 @@ impl TypeCheckStage {
                 }) = hir_ctx.get(*symbol_id)
                 else {
                     return Err(DiagnosticMessage::SymbolNotFound {
-                        name: name.to_string(),
+                        name: name.clone(),
                         span: instruction.span,
                     });
                 };
@@ -132,15 +133,11 @@ impl TypeCheckStage {
                 let mut lambda_stack_analysis = StackAnalysis::new(hir_ctx, stack_in.clone());
 
                 for instruction in body {
-                    TypeCheckStage::type_check_instruction(
-                        hir_ctx,
-                        instruction,
-                        &mut lambda_stack_analysis,
-                    )?;
+                    Self::type_check_instruction(hir_ctx, instruction, &mut lambda_stack_analysis)?;
                 }
 
                 lambda_stack_analysis.match_stack(
-                    stack_out.clone(),
+                    stack_out,
                     instruction.span,
                     body.last()
                         .map(|instruction| instruction.span)
@@ -164,16 +161,18 @@ impl TypeCheckStage {
         );
 
         for instruction in &word.body {
-            TypeCheckStage::type_check_instruction(hir_ctx, instruction, &mut stack_analysis)?;
+            Self::type_check_instruction(hir_ctx, instruction, &mut stack_analysis)?;
         }
 
+        let expected_stack = word
+            .signature
+            .stack_out
+            .iter()
+            .map(|item| &item.value)
+            .cloned()
+            .collect::<Vec<_>>();
         stack_analysis.match_stack(
-            word.signature
-                .stack_out
-                .iter()
-                .map(|item| &item.value)
-                .cloned()
-                .collect(),
+            &expected_stack,
             word.signature.stack_effect_span,
             word.body
                 .last()
@@ -202,7 +201,7 @@ impl Stage<CompileContext> for TypeCheckStage {
                     continue;
                 }
 
-                if let Err(err) = TypeCheckStage::type_check_word(word, &hir_ctx) {
+                if let Err(err) = Self::type_check_word(word, &hir_ctx) {
                     diagnostics.emit_fatal(err);
                 }
             }

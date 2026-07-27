@@ -1,6 +1,8 @@
 pub mod empty_word;
 pub mod unused_import;
 
+use std::fmt::Debug;
+
 use crate::{
     common::{CompileContext, Spanned},
     error::Diagnostics,
@@ -11,7 +13,7 @@ use crate::{
     },
 };
 
-pub trait Lint {
+pub trait Lint: Debug {
     fn check_program(
         &mut self,
         _ctx: &HIRContext,
@@ -50,12 +52,13 @@ pub trait Lint {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct LintPass {
     lints: Vec<Box<dyn Lint>>,
 }
 
 impl LintPass {
+    #[must_use]
     pub fn lint(mut self, lint: impl Lint + 'static) -> Self {
         self.lints.push(Box::new(lint));
         self

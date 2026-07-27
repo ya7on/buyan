@@ -125,7 +125,7 @@ fn register_structs(input: &ASTProgram, context: &mut HIRContext, diagnostics: &
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CollectNamesStage;
 
 impl Stage<CompileContext> for CollectNamesStage {
@@ -134,7 +134,13 @@ impl Stage<CompileContext> for CollectNamesStage {
 
     fn execute(&mut self, input: Self::Input, _: &mut CompileContext) -> StageResult<Self::Output> {
         let mut diagnostics = Diagnostics::default();
-        let mut context = HIRContext::default();
+        let mut context = match HIRContext::new() {
+            Ok(context) => context,
+            Err(error) => {
+                diagnostics.emit_fatal(error);
+                return StageResult::new(None, diagnostics);
+            }
+        };
 
         for module in &input.modules {
             if let Err(err) = context.register_module(module) {

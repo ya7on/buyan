@@ -11,12 +11,12 @@ use std::fmt::Write;
 
 fn dump_stack_item(buf: &mut String, item: &ASTStackEffectItem) -> Result<(), std::fmt::Error> {
     match item {
-        ASTStackEffectItem::Symbol { name } => write!(buf, "{}", name)?,
-        ASTStackEffectItem::StackVar { name } => write!(buf, "...{}", name)?,
+        ASTStackEffectItem::Symbol { name } => write!(buf, "{name}")?,
+        ASTStackEffectItem::StackVar { name } => write!(buf, "...{name}")?,
         ASTStackEffectItem::Lambda { stack_effect } => {
             let mut s = String::new();
             dump_stack_effect(&mut s, stack_effect)?;
-            write!(buf, "|{}|", s)?;
+            write!(buf, "|{s}|")?;
         }
     }
     Ok(())
@@ -88,7 +88,7 @@ fn dump_word(buf: &mut String, word: &ASTWord) -> Result<(), std::fmt::Error> {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        write!(buf, "{}", vars)?;
+        write!(buf, "{vars}")?;
         write!(buf, ">")?;
     }
     write!(buf, "(")?;
@@ -136,7 +136,7 @@ fn dump_module(buf: &mut String, module: &ASTModule) -> Result<(), std::fmt::Err
     Ok(())
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct DumpAst;
 
 impl Stage<CompileContext> for DumpAst {
@@ -154,7 +154,7 @@ impl Stage<CompileContext> for DumpAst {
                 break;
             }
         }
-        println!("{}", result);
+        println!("{result}");
 
         StageResult::new(Some(input), diagnostics)
     }

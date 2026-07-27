@@ -40,7 +40,7 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
         while let Some(module) = queue.pop() {
             let source_id = context.add_source(module.absolute.clone(), module.content.clone());
             let content_len = module.content.len();
-            let lexer_result = match lex(LexInput {
+            let lexer_result = match lex(&LexInput {
                 content: module.content,
                 source_id,
             }) {
@@ -109,7 +109,7 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
 
                 let path = Into::<PathBuf>::into(format!(
                     "{}.by",
-                    import.value.to_string().replace(".", "/")
+                    import.value.to_string().replace('.', "/")
                 ));
                 if !visited.insert(path.clone()) {
                     continue;

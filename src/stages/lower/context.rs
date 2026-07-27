@@ -6,7 +6,8 @@ use crate::stages::semantic::context::SymbolId;
 pub struct WordId(pub usize);
 
 impl WordId {
-    pub fn id(&self) -> usize {
+    #[must_use]
+    pub const fn id(&self) -> usize {
         self.0
     }
 }
@@ -15,7 +16,8 @@ impl WordId {
 pub struct TypeId(pub usize);
 
 impl TypeId {
-    pub fn id(&self) -> usize {
+    #[must_use]
+    pub const fn id(&self) -> usize {
         self.0
     }
 }
@@ -31,7 +33,7 @@ pub struct TypeIRInfo {
     pub field_count: usize,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct IRContext {
     pub symbol_id_to_word_id: HashMap<SymbolId, WordId>,
     pub words: Vec<WordIRInfo>,
@@ -47,6 +49,7 @@ impl IRContext {
         Some(word_id)
     }
 
+    #[must_use]
     pub fn get_word(&self, word_id: WordId) -> Option<&WordIRInfo> {
         self.words.get(word_id.id())
     }
@@ -58,6 +61,7 @@ impl IRContext {
         Some(type_id)
     }
 
+    #[must_use]
     pub fn get_type(&self, type_id: TypeId) -> Option<&TypeIRInfo> {
         self.types.get(type_id.id())
     }

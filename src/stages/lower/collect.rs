@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CollectSymbolsStage;
 
 impl Stage<CompileContext> for CollectSymbolsStage {

@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CollectHIRStage;
 
 enum CallSegment {
@@ -25,6 +25,7 @@ enum CallSegment {
 }
 
 impl CollectHIRStage {
+    #[allow(clippy::too_many_lines)]
     fn analyze_instruction(
         module: &ASTModule,
         word: &ASTWord,
@@ -43,9 +44,11 @@ impl CollectHIRStage {
                 let segments = call
                     .0
                     .iter()
-                    .map(|segment| match segment.parse::<usize>() {
-                        Ok(number) => CallSegment::Number(number),
-                        Err(_) => CallSegment::String(segment.clone()),
+                    .map(|segment| {
+                        segment.parse::<usize>().map_or_else(
+                            |_| CallSegment::String(segment.clone()),
+                            CallSegment::Number,
+                        )
                     })
                     .collect::<Vec<_>>();
 

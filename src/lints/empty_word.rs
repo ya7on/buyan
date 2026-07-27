@@ -7,6 +7,7 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub struct EmptyWord;
 
 impl Lint for EmptyWord {

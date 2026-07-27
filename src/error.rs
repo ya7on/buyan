@@ -48,6 +48,7 @@ pub enum DiagnosticMessage {
     Unknown {
         label: String,
     },
+    RuntimeError(&'static str),
     /// Entrypoint file not found
     FileNotFound {
         path: String,
@@ -116,9 +117,11 @@ impl Default for DiagnosticMessage {
 }
 
 impl DiagnosticMessage {
-    pub fn code(&self) -> u16 {
+    #[must_use]
+    pub const fn code(&self) -> u16 {
         match self {
             Self::Unknown { .. } => 1,
+            Self::RuntimeError(_) => 15,
             Self::FileNotFound { .. } => 2,
             Self::ImportError { .. } => 3,
             Self::UnexpectedToken { .. } => 4,
@@ -135,7 +138,8 @@ impl DiagnosticMessage {
         }
     }
 
-    pub fn span(&self) -> Option<Span> {
+    #[must_use]
+    pub const fn span(&self) -> Option<Span> {
         match self {
             Self::EmptyWord { span, .. }
             | Self::UnusedImport { span, .. }
@@ -149,10 +153,11 @@ impl DiagnosticMessage {
             | Self::RecursiveStruct { span, .. }
             | Self::InvalidFieldIndex { span, .. }
             | Self::InvalidStack { span, .. } => Some(*span),
-            Self::Unknown { .. } | Self::FileNotFound { .. } => None,
+            Self::Unknown { .. } | Self::RuntimeError(_) | Self::FileNotFound { .. } => None,
         }
     }
 
+    #[must_use]
     pub fn additional_labels(&self) -> Vec<(Span, String)> {
         match self {
             Self::InvalidStack {
@@ -172,9 +177,11 @@ impl DiagnosticMessage {
         }
     }
 
-    pub fn title(&self) -> &'static str {
+    #[must_use]
+    pub const fn title(&self) -> &'static str {
         match self {
             Self::Unknown { .. } => "Unknown Error",
+            Self::RuntimeError(_) => "Runtime Error",
             Self::FileNotFound { .. } => "File Not Found",
             Self::ImportError { .. } => "Import Error",
             Self::UnexpectedToken { .. } => "Unexpected Token",
@@ -191,9 +198,11 @@ impl DiagnosticMessage {
         }
     }
 
+    #[must_use]
     pub fn description(&self) -> String {
         match self {
             Self::Unknown { label } => label.clone(),
+            Self::RuntimeError(label) => (*label).to_string(),
             Self::FileNotFound { path } => format!("file '{path}' could not be found"),
             Self::ImportError { path, .. } => {
                 format!("module '{path}' could not be imported")

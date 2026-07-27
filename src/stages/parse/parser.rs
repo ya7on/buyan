@@ -11,20 +11,21 @@ use crate::{
     stages::parse::{ast::ASTModule, lexer::TokenKind, parse_module::module_parser},
 };
 
+#[derive(Debug)]
 pub struct ParserInput {
     pub tokens: Vec<(TokenKind, SourceSpan)>,
     pub source_id: SourceId,
     pub content_len: usize,
 }
 
+#[derive(Debug)]
 pub struct ParseResult {
     pub ast: ASTModule,
 }
 
-pub fn parse(input: ParserInput) -> Result<ParseResult, Vec<DiagnosticMessage>> {
+pub(crate) fn parse(input: ParserInput) -> Result<ParseResult, Vec<DiagnosticMessage>> {
     let end_span = SourceSpan::new(input.source_id, input.content_len..input.content_len);
-    let token_stream =
-        Stream::from_iter(input.tokens.to_owned()).map(end_span, |(t, s): (_, _)| (t, s));
+    let token_stream = Stream::from_iter(input.tokens).map(end_span, |(t, s): (_, _)| (t, s));
 
     let ast = module_parser()
         .parse(token_stream)

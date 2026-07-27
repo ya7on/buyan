@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BasicBlockBuilder {
     pub instructions: Vec<Spanned<IRInstruction>>,
 }
@@ -24,6 +24,7 @@ impl BasicBlockBuilder {
         self.instructions.push(instruction);
     }
 
+    #[must_use]
     pub fn build(self, terminator: Spanned<IRTerminator>) -> IRBasicBlock {
         IRBasicBlock {
             instructions: self.instructions,
@@ -32,7 +33,7 @@ impl BasicBlockBuilder {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct LowerStage;
 
 impl LowerStage {
@@ -55,6 +56,7 @@ impl LowerStage {
         ))
     }
 
+    #[allow(clippy::too_many_lines)]
     fn lower_ir_word(
         ir_ctx: &IRContext,
         body: &[Spanned<HIRInstruction>],
@@ -197,7 +199,7 @@ impl LowerStage {
                     HIRLiteral::String(value) => {
                         basicblock.push(Spanned::new(
                             IRInstruction::PushConstant {
-                                value: IRConstant::String(value.to_string()),
+                                value: IRConstant::String(value.clone()),
                             },
                             instruction.span,
                         ));

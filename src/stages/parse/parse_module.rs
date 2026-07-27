@@ -64,8 +64,8 @@ where
                 .collect::<Vec<_>>(),
         )
         .map(|(((imports, name), structs), words)| ASTModule {
-            imports,
             name,
+            imports,
             structs,
             words,
         })

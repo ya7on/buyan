@@ -13,6 +13,7 @@ use crate::{
 };
 
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn word_parser<'src, I>()
 -> impl Parser<'src, I, ASTWord, Err<Rich<'src, TokenKind, SourceSpan>>>
 where
@@ -68,7 +69,7 @@ where
                     .collect::<Vec<_>>(),
                 )
                 .or_not()
-                .map(|traits| traits.unwrap_or_default()),
+                .map(Option::unwrap_or_default),
         )
         .map(|(name, traits)| ASTWordVar::Type { name, traits });
     let word_vars = type_var
@@ -82,14 +83,14 @@ where
         .repeated()
         .collect::<Vec<_>>()
         .or_not()
-        .map(|attrs| attrs.unwrap_or_default()))
+        .map(Option::unwrap_or_default))
     .then_ignore(just(TokenKind::KeywordDef))
     .then(word_name.labelled("Word name was expected"))
     .then(
         word_vars
             .delimited_by(just(TokenKind::LessThan), just(TokenKind::GreaterThan))
             .or_not()
-            .map(|type_vars| type_vars.unwrap_or_default()),
+            .map(Option::unwrap_or_default),
     )
     .then(
         stack_effect_parser()
@@ -117,8 +118,8 @@ where
     .map(
         |((((attributes, name), word_vars), stack_effect), body)| ASTWord {
             name,
-            word_vars,
             body,
+            word_vars,
             stack_effect,
             attributes,
         },

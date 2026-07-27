@@ -6,7 +6,7 @@ use crate::common::executor::TestExecutor;
 
 impl TestExecutor {
     pub fn hir_ok(&self) -> bool {
-        self.hir.as_ref().map(|hir| hir.is_ok()).unwrap_or(false)
+        self.hir.as_ref().is_some_and(Result::is_ok)
     }
 
     pub fn assert_hir_ok(self) -> Self {
@@ -15,14 +15,11 @@ impl TestExecutor {
     }
 
     pub fn assert_hir_err(self, pred: impl Fn(&DiagnosticMessage) -> bool) -> Self {
-        assert!(self.hir.is_some());
-        assert!(self.hir.as_ref().unwrap().is_err());
+        let Some(Err(diagnostics)) = &self.hir else {
+            panic!("HIR stage did not fail {:?}", self.hir);
+        };
         assert!(
-            self.hir
-                .as_ref()
-                .unwrap()
-                .as_ref()
-                .unwrap_err()
+            diagnostics
                 .iter()
                 .filter(|diagnostic| diagnostic.kind == DiagnosticKind::Error)
                 .map(|diagnostic| &diagnostic.message)

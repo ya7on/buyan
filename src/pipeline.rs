@@ -1,5 +1,6 @@
 use crate::error::{Diagnostic, DiagnosticKind, Diagnostics};
 
+#[derive(Debug)]
 pub struct StageResult<T> {
     output: Option<T>,
     diagnostics: Diagnostics,
@@ -13,7 +14,7 @@ impl<T> StageResult<T> {
         }
     }
 
-    pub fn new(output: Option<T>, diagnostics: Diagnostics) -> Self {
+    pub const fn new(output: Option<T>, diagnostics: Diagnostics) -> Self {
         Self {
             output,
             diagnostics,
@@ -21,6 +22,7 @@ impl<T> StageResult<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct PipelineBuilder<O, C> {
     prev: Option<O>,
     pub context: C,
@@ -64,6 +66,10 @@ impl<O, C: Default> PipelineBuilder<O, C> {
         }
     }
 
+    /// Returns the current pipeline output.
+    ///
+    /// # Errors
+    /// Returns collected diagnostics when the pipeline failed or has no output.
     pub fn dump(&self) -> Result<&O, &Vec<Diagnostic>> {
         if self
             .diagnostics

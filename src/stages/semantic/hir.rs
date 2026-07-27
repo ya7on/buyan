@@ -57,8 +57,8 @@ pub enum HIRType {
     TypeVar(SymbolId),
     StackVar(SymbolId),
     Lambda {
-        stack_in: Vec<HIRType>,
-        stack_out: Vec<HIRType>,
+        stack_in: Vec<Self>,
+        stack_out: Vec<Self>,
     },
 }
 
@@ -93,6 +93,6 @@ pub enum HIRInstruction {
     Lambda {
         stack_in: Vec<HIRType>,
         stack_out: Vec<HIRType>,
-        body: Vec<Spanned<HIRInstruction>>,
+        body: Vec<Spanned<Self>>,
     },
 }

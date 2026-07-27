@@ -31,13 +31,12 @@ pub struct TestFilesystem {
 
 impl FileSystem for TestFilesystem {
     fn read(&self, path: &std::path::Path) -> Option<buyan::fs::Module> {
-        self.files
-            .get(path.to_str().unwrap())
-            .map(|content| buyan::fs::Module {
-                absolute: path.to_path_buf(),
-                content: content.to_string(),
-                name: path.to_str().unwrap().to_string(),
-            })
+        let path_str = path.to_str()?;
+        self.files.get(path_str).map(|content| buyan::fs::Module {
+            absolute: path.to_path_buf(),
+            content: content.clone(),
+            name: path_str.to_string(),
+        })
     }
 }
 

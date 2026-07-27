@@ -116,7 +116,7 @@ fn cycle() {
 }
 
 #[test]
-fn types() {
+fn types() -> Result<(), String> {
     let executor = TestExecutor::input((
         "app.by",
         r#"
@@ -127,7 +127,12 @@ fn types() {
         "#,
     ))
     .check();
-    let errors = executor.hir.unwrap().unwrap_err();
+    let hir = executor
+        .hir
+        .ok_or_else(|| "HIR stage did not run".to_string())?;
+    let errors = hir
+        .err()
+        .ok_or_else(|| "HIR stage unexpectedly succeeded".to_string())?;
 
     assert_eq!(
         errors
@@ -139,4 +144,5 @@ fn types() {
             .count(),
         3
     );
+    Ok(())
 }

@@ -1,5 +1,6 @@
 use crate::{
     common::CompileContext,
+    error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::lower::{
         context::{IRContext, TypeId, WordId},
@@ -13,10 +14,7 @@ pub enum IRValue {
     U8(u8),
     String(String),
     Lambda(WordId),
-    Struct {
-        type_id: TypeId,
-        fields: Vec<IRValue>,
-    },
+    Struct { type_id: TypeId, fields: Vec<Self> },
 }
 
 impl IRValue {
@@ -36,35 +34,52 @@ pub struct IRInterpreter {
 
 #[allow(dead_code)]
 impl IRInterpreter {
+    #[must_use]
     pub fn stack(&self) -> &[IRValue] {
         &self.stack
     }
 
-    pub fn execute(&mut self, program: &IRProgram) {
+    fn execute_program(&mut self, program: &IRProgram) -> Result<(), DiagnosticMessage> {
         self.stack.clear();
 
         let word_id = program
             .words
             .iter()
             .position(|word| word.entrypoint)
-            .expect("word not found");
+            .ok_or(DiagnosticMessage::RuntimeError("word not found"))?;
 
-        self.execute_word(program, WordId(word_id));
+        self.execute_word(program, WordId(word_id))
     }
 
-    fn execute_word(&mut self, program: &IRProgram, word_id: WordId) {
-        let word = program.words.get(word_id.id()).expect("word not found");
+    fn execute_word(
+        &mut self,
+        program: &IRProgram,
+        word_id: WordId,
+    ) -> Result<(), DiagnosticMessage> {
+        let word = program
+            .words
+            .get(word_id.id())
+            .ok_or(DiagnosticMessage::RuntimeError("word not found"))?;
         let mut block_id = BasicBlockId(0);
         loop {
-            let block = word.blocks.get(block_id.0).expect("block not found");
-            let Some(next_block_id) = self.execute_block(program, block) else {
+            let block = word
+                .blocks
+                .get(block_id.0)
+                .ok_or(DiagnosticMessage::RuntimeError("block not found"))?;
+            let Some(next_block_id) = self.execute_block(program, block)? else {
                 break;
             };
             block_id = next_block_id;
         }
+        Ok(())
     }
 
-    fn execute_block(&mut self, program: &IRProgram, block: &IRBasicBlock) -> Option<BasicBlockId> {
+    #[allow(clippy::too_many_lines)]
+    fn execute_block(
+        &mut self,
+        program: &IRProgram,
+        block: &IRBasicBlock,
+    ) -> Result<Option<BasicBlockId>, DiagnosticMessage> {
         for instruction in &block.instructions {
             match &instruction.value {
                 IRInstruction::PushConstant { value } => {
@@ -74,12 +89,15 @@ impl IRInterpreter {
                     self.stack.push(IRValue::Lambda(*word_id));
                 }
                 IRInstruction::CallDirect { word_id } => {
-                    self.execute_word(program, *word_id);
+                    self.execute_word(program, *word_id)?;
                 }
                 IRInstruction::CallIndirect => {
-                    let lambda = self.stack.pop().expect("stack underflow");
+                    let lambda = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match lambda {
-                        IRValue::Lambda(word_id) => self.execute_word(program, word_id),
+                        IRValue::Lambda(word_id) => self.execute_word(program, word_id)?,
                         _ => panic!("indirect call expects lambda"),
                     }
                 }
@@ -91,7 +109,7 @@ impl IRInterpreter {
                         .stack
                         .len()
                         .checked_sub(*field_count)
-                        .expect("stack underflow");
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     let fields = self.stack.split_off(start);
                     self.stack.push(IRValue::Struct {
                         type_id: *type_id,
@@ -99,7 +117,10 @@ impl IRInterpreter {
                     });
                 }
                 IRInstruction::Unpack { type_id } => {
-                    let value = self.stack.pop().expect("stack underflow");
+                    let value = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     let IRValue::Struct {
                         type_id: actual_type_id,
                         fields,
@@ -114,7 +135,10 @@ impl IRInterpreter {
                     type_id,
                     field_index,
                 } => {
-                    let value = self.stack.pop().expect("stack underflow");
+                    let value = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     let IRValue::Struct {
                         type_id: actual_type_id,
                         fields,
@@ -126,25 +150,43 @@ impl IRInterpreter {
                     let field = fields
                         .into_iter()
                         .nth(*field_index)
-                        .expect("field index out of bounds");
+                        .ok_or(DiagnosticMessage::RuntimeError("field index out of bounds"))?;
                     self.stack.push(field);
                 }
                 IRInstruction::Swap => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     self.stack.push(rhs);
                     self.stack.push(lhs);
                 }
                 IRInstruction::Dup => {
-                    let value = self.stack.last().cloned().expect("stack underflow");
+                    let value = self
+                        .stack
+                        .last()
+                        .cloned()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     self.stack.push(value);
                 }
                 IRInstruction::Drop => {
-                    self.stack.pop().expect("stack underflow");
+                    self.stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                 }
                 IRInstruction::Add => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::U8(lhs + rhs));
@@ -153,8 +195,14 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Sub => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::U8(lhs - rhs));
@@ -163,8 +211,14 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Mul => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::U8(lhs * rhs));
@@ -173,8 +227,14 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Div => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::U8(lhs / rhs));
@@ -183,8 +243,14 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Eq => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs == rhs));
@@ -199,8 +265,14 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Gt => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs > rhs));
@@ -209,8 +281,14 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Lt => {
-                    let rhs = self.stack.pop().expect("stack underflow");
-                    let lhs = self.stack.pop().expect("stack underflow");
+                    let rhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lhs = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs < rhs));
@@ -219,35 +297,47 @@ impl IRInterpreter {
                     }
                 }
                 IRInstruction::Print => {
-                    let value = self.stack.pop().expect("stack underflow");
+                    let value = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match value {
                         IRValue::String(value) => {
-                            print!("{}", value);
+                            print!("{value}");
                         }
                         IRValue::U8(value) => {
-                            print!("{}", value);
+                            print!("{value}");
                         }
                         IRValue::Bool(value) => {
-                            print!("{}", value);
+                            print!("{value}");
                         }
                         _ => {
-                            print!("{:?}", value);
+                            print!("{value:?}");
                         }
                     }
                 }
             }
         }
 
-        match &block.terminator.value {
+        let next_block = match &block.terminator.value {
             IRTerminator::End => None,
             IRTerminator::Branch { branch } => Some(*branch),
             IRTerminator::BranchIfZero {
                 then_branch,
                 else_branch,
             } => {
-                let else_lambda = self.stack.pop().expect("stack underflow");
-                let then_lambda = self.stack.pop().expect("stack underflow");
-                let condition = self.stack.pop().expect("stack underflow");
+                let else_lambda = self
+                    .stack
+                    .pop()
+                    .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                let then_lambda = self
+                    .stack
+                    .pop()
+                    .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                let condition = self
+                    .stack
+                    .pop()
+                    .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
 
                 let IRValue::Bool(condition) = condition else {
                     panic!("branch expects bool condition");
@@ -261,7 +351,8 @@ impl IRInterpreter {
                     Some(*else_branch)
                 }
             }
-        }
+        };
+        Ok(next_block)
     }
 }
 
@@ -274,7 +365,13 @@ impl Stage<CompileContext> for IRInterpreter {
         (_ir_ctx, ir_program): Self::Input,
         _: &mut CompileContext,
     ) -> StageResult<Self::Output> {
-        IRInterpreter::execute(self, &ir_program);
-        StageResult::success(())
+        let mut diagnostics = Diagnostics::default();
+        match self.execute_program(&ir_program) {
+            Ok(()) => StageResult::new(Some(()), diagnostics),
+            Err(error) => {
+                diagnostics.emit_fatal(error);
+                StageResult::new(None, diagnostics)
+            }
+        }
     }
 }

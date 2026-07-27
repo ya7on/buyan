@@ -62,7 +62,7 @@ impl<T: Debug> Deref for Spanned<T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CompileContext {
     pub sources: HashMap<SourceId, Source>,
     source_ids: HashMap<PathBuf, SourceId>,
@@ -86,6 +86,7 @@ pub struct DottedPath(pub Vec<String>);
 
 impl DottedPath {
     /// Appends a name to the dotted path, returning a new `DottedPath` instance.
+    #[must_use]
     pub fn append(&self, name: &str) -> Self {
         Self(
             self.0
@@ -96,6 +97,7 @@ impl DottedPath {
         )
     }
 
+    #[must_use]
     pub fn extend(&self, other: &Self) -> Self {
         Self(
             self.0
@@ -106,20 +108,24 @@ impl DottedPath {
         )
     }
 
+    #[must_use]
     pub fn parse(path: &str) -> Self {
-        Self(path.split('.').map(|s| s.to_string()).collect())
+        Self(path.split('.').map(ToString::to_string).collect())
     }
 
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    #[must_use]
     pub fn first(&self) -> Option<&str> {
-        self.0.first().map(|s| s.as_str())
+        self.0.first().map(String::as_str)
     }
 }
 
@@ -132,6 +138,6 @@ impl Display for DottedPath {
 
 impl From<DottedPath> for PathBuf {
     fn from(path: DottedPath) -> Self {
-        PathBuf::from(path.0.join("."))
+        Self::from(path.0.join("."))
     }
 }

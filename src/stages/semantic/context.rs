@@ -13,7 +13,8 @@ use crate::{
 pub struct SymbolId(pub usize);
 
 impl SymbolId {
-    pub fn id(&self) -> usize {
+    #[must_use]
+    pub const fn id(&self) -> usize {
         self.0
     }
 }
@@ -60,8 +61,9 @@ pub struct HIRContext {
     pub symbols: Vec<SymbolKind>,
 }
 
-impl Default for HIRContext {
-    fn default() -> Self {
+impl HIRContext {
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn new() -> Result<Self, DiagnosticMessage> {
         let mut result = Self {
             symbols_index: HashMap::new(),
             symbols: Vec::new(),
@@ -75,7 +77,9 @@ impl Default for HIRContext {
                     name: "Copy".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Copy'".to_string(),
+            })?;
         let add_trait_id = result
             .register(
                 &DottedPath::parse("Add"),
@@ -83,7 +87,9 @@ impl Default for HIRContext {
                     name: "Add".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Add'".to_string(),
+            })?;
         let sub_trait_id = result
             .register(
                 &DottedPath::parse("Sub"),
@@ -91,7 +97,9 @@ impl Default for HIRContext {
                     name: "Sub".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Sub'".to_string(),
+            })?;
         let mul_trait_id = result
             .register(
                 &DottedPath::parse("Mul"),
@@ -99,7 +107,9 @@ impl Default for HIRContext {
                     name: "Mul".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Mul'".to_string(),
+            })?;
         let div_trait_id = result
             .register(
                 &DottedPath::parse("Div"),
@@ -107,7 +117,9 @@ impl Default for HIRContext {
                     name: "Div".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Div'".to_string(),
+            })?;
         let eq_trait_id = result
             .register(
                 &DottedPath::parse("Eq"),
@@ -115,7 +127,9 @@ impl Default for HIRContext {
                     name: "Eq".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Eq'".to_string(),
+            })?;
         let ord_trait_id = result
             .register(
                 &DottedPath::parse("Ord"),
@@ -123,16 +137,22 @@ impl Default for HIRContext {
                     name: "Ord".to_string(),
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in trait 'Ord'".to_string(),
+            })?;
 
         // bool
-        result.register(
-            &DottedPath::parse("bool"),
-            SymbolKind::Type {
-                name: "bool".to_string(),
-                traits: vec![copy_trait_id, eq_trait_id],
-            },
-        );
+        result
+            .register(
+                &DottedPath::parse("bool"),
+                SymbolKind::Type {
+                    name: "bool".to_string(),
+                    traits: vec![copy_trait_id, eq_trait_id],
+                },
+            )
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in type 'bool'".to_string(),
+            })?;
 
         // u8
         result
@@ -151,7 +171,9 @@ impl Default for HIRContext {
                     ],
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in type 'u8'".to_string(),
+            })?;
 
         // string
         result
@@ -162,13 +184,14 @@ impl Default for HIRContext {
                     traits: vec![eq_trait_id],
                 },
             )
-            .unwrap();
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in type 'string'".to_string(),
+            })?;
 
-        result
+        Ok(result)
     }
-}
 
-impl HIRContext {
+    #[must_use]
     pub fn format_type(&self, ty: &HIRType) -> String {
         match ty {
             HIRType::BuiltIn(symbol_id) => match self.get(*symbol_id) {
@@ -206,16 +229,19 @@ impl HIRContext {
         }
     }
 
+    #[must_use]
     pub fn lookup(&self, name: &DottedPath) -> Option<SymbolId> {
         self.symbols_index.get(&name.to_string()).copied()
     }
 
+    #[must_use]
     pub fn lookup_and_get(&self, name: &DottedPath) -> Option<(SymbolId, &SymbolKind)> {
         let id = self.lookup(name)?;
         let kind = self.get(id)?;
         Some((id, kind))
     }
 
+    #[must_use]
     pub fn get(&self, id: SymbolId) -> Option<&SymbolKind> {
         self.symbols.get(id.0)
     }
@@ -233,7 +259,10 @@ impl HIRContext {
         Some(symbol_id)
     }
 
-    pub fn register_module(&mut self, module: &ASTModule) -> Result<SymbolId, DiagnosticMessage> {
+    pub(crate) fn register_module(
+        &mut self,
+        module: &ASTModule,
+    ) -> Result<SymbolId, DiagnosticMessage> {
         let module_name = module.name.to_string();
         let Some(id) = self.register(
             &module.name,
@@ -249,7 +278,7 @@ impl HIRContext {
         Ok(id)
     }
 
-    pub fn register_word(
+    pub(crate) fn register_word(
         &mut self,
         module_name: &DottedPath,
         word: &ASTWord,
@@ -347,7 +376,7 @@ impl HIRContext {
         })
     }
 
-    pub fn register_struct(
+    pub(crate) fn register_struct(
         &mut self,
         module_id: SymbolId,
         item: &ASTStruct,
@@ -373,7 +402,7 @@ impl HIRContext {
         })
     }
 
-    pub fn handle_stack_item(
+    pub(crate) fn handle_stack_item(
         &self,
         module_name: &DottedPath,
         wordpath: &DottedPath,

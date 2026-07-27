@@ -73,6 +73,6 @@ pub enum ASTInstruction {
     Unpack(DottedPath),
     Lambda {
         stack_effect: Spanned<ASTStackEffect>,
-        body: Vec<Spanned<ASTInstruction>>,
+        body: Vec<Spanned<Self>>,
     },
 }

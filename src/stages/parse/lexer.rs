@@ -6,6 +6,7 @@ use crate::{
     error::DiagnosticMessage,
 };
 
+#[derive(Debug)]
 pub struct LexInput {
     pub content: String,
     pub source_id: SourceId,
@@ -16,14 +17,14 @@ pub struct LexResult {
     pub tokens: Vec<(TokenKind, SourceSpan)>,
 }
 
-pub fn lex(input: LexInput) -> Result<LexResult, Vec<DiagnosticMessage>> {
+pub(crate) fn lex(input: &LexInput) -> Result<LexResult, Vec<DiagnosticMessage>> {
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
     for (token, range) in TokenKind::lexer(&input.content).spanned() {
         let span = SourceSpan::new(input.source_id, range);
         match token {
             Ok(token) => tokens.push((token, span)),
-            Err(_) => errors.push(DiagnosticMessage::UnexpectedToken { span: span.into() }),
+            Err(()) => errors.push(DiagnosticMessage::UnexpectedToken { span: span.into() }),
         }
     }
     if errors.is_empty() {
@@ -64,7 +65,7 @@ fn unescape_string_literal(raw: &str) -> String {
     result
 }
 
-#[derive(Logos, Debug, PartialEq, Clone)]
+#[derive(Logos, Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
     #[regex(r"[ \t\n\r]+", logos::skip)]
     #[regex(r"//[^\n]*", logos::skip, allow_greedy = true)]
