@@ -97,6 +97,13 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                                 name: "std.io".to_string(),
                             });
                         }
+                        "std.array" => {
+                            queue.push(Module {
+                                absolute: PathBuf::from("stdlib/array.by"),
+                                content: include_str!("../../../stdlib/array.by").to_string(),
+                                name: "std.array".to_string(),
+                            });
+                        }
                         _ => {
                             diagnostics.emit_fatal(DiagnosticMessage::ImportError {
                                 path: import.to_string(),

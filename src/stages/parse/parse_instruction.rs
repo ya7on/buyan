@@ -71,6 +71,7 @@ where
             })
             .then(
                 instr
+                    .clone()
                     .map_with(|instr, extra| {
                         let span: SourceSpan = extra.span();
                         Spanned::new(instr, span)
@@ -81,6 +82,21 @@ where
             )
             .map(|(stack_effect, body)| ASTInstruction::Lambda { stack_effect, body });
 
-        choice((lambda, literal, pack, unpack, call))
+        let array = instr
+            .clone()
+            .map_with(|instr, extra| {
+                let span: SourceSpan = extra.span();
+                Spanned::new(instr, span)
+            })
+            .separated_by(just(TokenKind::Comma))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .delimited_by(
+                just(TokenKind::LeftSquareBracket),
+                just(TokenKind::RightSquareBracket),
+            )
+            .map(|elements| ASTInstruction::Array { elements });
+
+        choice((lambda, literal, pack, unpack, call, array))
     })
 }

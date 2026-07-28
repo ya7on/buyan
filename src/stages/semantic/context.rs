@@ -4,8 +4,8 @@ use crate::{
     common::{DottedPath, Spanned},
     error::DiagnosticMessage,
     stages::{
-        parse::ast::{ASTModule, ASTStackEffectItem, ASTStruct, ASTWord, ASTWordVar},
-        semantic::hir::HIRType,
+        parse::ast::{ASTConst, ASTModule, ASTStackEffectItem, ASTStruct, ASTWord, ASTWordVar},
+        semantic::hir::{HIRConst, HIRType},
     },
 };
 
@@ -62,7 +62,6 @@ pub struct HIRContext {
 }
 
 impl HIRContext {
-    #[allow(clippy::too_many_lines)]
     pub(crate) fn new() -> Result<Self, DiagnosticMessage> {
         let mut result = Self {
             symbols_index: HashMap::new(),
@@ -226,6 +225,16 @@ impl HIRContext {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            HIRType::Array { element_type, size } => {
+                let size = match size {
+                    HIRConst::Value(value) => value.to_string(),
+                    HIRConst::Var(symbol_id) => match self.get(*symbol_id) {
+                        Some(SymbolKind::TypeVar { name, .. }) => name.clone(),
+                        _ => "<unknown>".to_string(),
+                    },
+                };
+                format!("[{}; {size}]", self.format_type(element_type))
+            }
         }
     }
 
@@ -460,6 +469,35 @@ impl HIRContext {
                 Ok(HIRType::Lambda {
                     stack_in,
                     stack_out,
+                })
+            }
+            ASTStackEffectItem::Array { element_type, size } => {
+                let hir_type = self.handle_stack_item(module_name, wordpath, element_type)?;
+                if matches!(hir_type, HIRType::StackVar(_)) {
+                    return Err(DiagnosticMessage::InvalidSymbol {
+                        name: "stack variable cannot be an array element type".to_string(),
+                        span: element_type.span,
+                    });
+                }
+
+                let size = match &size.value {
+                    ASTConst::Value(value) => HIRConst::Value(*value),
+                    ASTConst::Var(name) => {
+                        let Some((symbol_id, SymbolKind::TypeVar { .. })) =
+                            self.lookup_and_get(&wordpath.append(name))
+                        else {
+                            return Err(DiagnosticMessage::SymbolNotFound {
+                                name: name.clone(),
+                                span: size.span,
+                            });
+                        };
+                        HIRConst::Var(symbol_id)
+                    }
+                };
+
+                Ok(HIRType::Array {
+                    element_type: Box::new(hir_type),
+                    size,
                 })
             }
         }

@@ -17,6 +17,7 @@ pub enum IRValue {
     String(String),
     Lambda(WordId),
     Struct { type_id: TypeId, fields: Vec<Self> },
+    Array(Vec<Self>),
 }
 
 impl IRValue {
@@ -76,7 +77,6 @@ impl IRInterpreter {
         Ok(())
     }
 
-    #[allow(clippy::too_many_lines)]
     fn execute_block(
         &mut self,
         program: &IRProgram,
@@ -118,6 +118,15 @@ impl IRInterpreter {
                         fields,
                     });
                 }
+                IRInstruction::PackArray { element_count } => {
+                    let start = self
+                        .stack
+                        .len()
+                        .checked_sub(*element_count)
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let elements = self.stack.split_off(start);
+                    self.stack.push(IRValue::Array(elements));
+                }
                 IRInstruction::Unpack { type_id } => {
                     let value = self
                         .stack
@@ -154,6 +163,27 @@ impl IRInterpreter {
                         .nth(*field_index)
                         .ok_or(DiagnosticMessage::RuntimeError("field index out of bounds"))?;
                     self.stack.push(field);
+                }
+                IRInstruction::ArrayIndex => {
+                    let index = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let array = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let IRValue::U8(index) = index else {
+                        panic!("array index expects u8 index");
+                    };
+                    let IRValue::Array(elements) = array else {
+                        panic!("array index expects array");
+                    };
+                    let element = elements
+                        .into_iter()
+                        .nth(usize::from(index))
+                        .ok_or(DiagnosticMessage::RuntimeError("array index out of bounds"))?;
+                    self.stack.push(element);
                 }
                 IRInstruction::Swap => {
                     let rhs = self

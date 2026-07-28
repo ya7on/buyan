@@ -351,3 +351,66 @@ def main( -- )
     std.io.println
 end
 ```
+
+## B0016
+
+**Invalid Array Value**
+
+An array literal contains a value that is not allowed in an array or whose type does not match the other elements.
+
+**Example**
+
+```buyan
+module app;
+
+def main( -- )
+    [1u8, true]
+end
+```
+
+**How to fix**
+
+Use vaues of one element type throughout the array.
+
+```buyan
+module app;
+
+def main( -- )
+    [1u8, 2u8]
+end
+```
+
+## B0017
+
+**Cannot Infer Type**
+
+The compiler could not infer all polymorphic parameters from the available inputs.
+
+**Example**
+
+```buyan
+module app;
+
+#[builtin]
+def make<T>( -- T) end
+
+def main( -- u8)
+    make
+end
+```
+
+**How to fix**
+
+Provide an input or another type constraint from which the generic parameter can be inferred.
+
+```buyan
+module app;
+
+#[builtin]
+def identity<T>(T -- T) end
+
+def main( -- u8)
+    1u8
+    identity
+end
+```

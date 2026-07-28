@@ -13,7 +13,6 @@ use crate::{
 };
 
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn word_parser<'src, I>()
 -> impl Parser<'src, I, ASTWord, Err<Rich<'src, TokenKind, SourceSpan>>>
 where

@@ -54,7 +54,9 @@ impl Lint for UnusedImport {
             | HIRInstruction::Pack { name, .. }
             | HIRInstruction::Unpack { name, .. }
             | HIRInstruction::GetField { name, .. } => name,
-            HIRInstruction::Literal(_) | HIRInstruction::Lambda { .. } => return,
+            HIRInstruction::Literal(_)
+            | HIRInstruction::Lambda { .. }
+            | HIRInstruction::Array { .. } => return,
         };
         let Some(imports) = self.imports.last_mut() else {
             return;

@@ -56,6 +56,16 @@ pub enum ASTStackEffectItem {
     Lambda {
         stack_effect: Spanned<ASTStackEffect>,
     },
+    Array {
+        element_type: Box<Spanned<Self>>,
+        size: Spanned<ASTConst>,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ASTConst {
+    Value(usize),
+    Var(String),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -74,5 +84,8 @@ pub enum ASTInstruction {
     Lambda {
         stack_effect: Spanned<ASTStackEffect>,
         body: Vec<Spanned<Self>>,
+    },
+    Array {
+        elements: Vec<Spanned<Self>>,
     },
 }

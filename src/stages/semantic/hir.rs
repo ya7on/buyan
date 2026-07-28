@@ -60,6 +60,16 @@ pub enum HIRType {
         stack_in: Vec<Self>,
         stack_out: Vec<Self>,
     },
+    Array {
+        element_type: Box<Self>,
+        size: HIRConst,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HIRConst {
+    Value(usize),
+    Var(SymbolId),
 }
 
 #[derive(Debug, Clone)]
@@ -94,5 +104,8 @@ pub enum HIRInstruction {
         stack_in: Vec<HIRType>,
         stack_out: Vec<HIRType>,
         body: Vec<Spanned<Self>>,
+    },
+    Array {
+        elements: Vec<Spanned<Self>>,
     },
 }

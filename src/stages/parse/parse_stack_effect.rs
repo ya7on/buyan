@@ -4,13 +4,14 @@ use chumsky::{
     extra::Err,
     input::ValueInput,
     prelude::{just, recursive},
+    primitive::choice,
     select,
 };
 
 use crate::{
     common::{DottedPath, SourceSpan, Spanned},
     stages::parse::{
-        ast::{ASTStackEffect, ASTStackEffectItem},
+        ast::{ASTConst, ASTStackEffect, ASTStackEffectItem},
         lexer::TokenKind,
     },
 };
@@ -43,12 +44,13 @@ where
             .collect::<Vec<_>>()
             .then_ignore(just(TokenKind::MinusMinus))
             .then(
-                ty.map_with(|instr, extra| {
-                    let span: SourceSpan = extra.span();
-                    Spanned::new(instr, span)
-                })
-                .separated_by(just(TokenKind::Comma))
-                .collect::<Vec<_>>(),
+                ty.clone()
+                    .map_with(|instr, extra| {
+                        let span: SourceSpan = extra.span();
+                        Spanned::new(instr, span)
+                    })
+                    .separated_by(just(TokenKind::Comma))
+                    .collect::<Vec<_>>(),
             )
             .delimited_by(just(TokenKind::Pipe), just(TokenKind::Pipe))
             .map_with(|(stack_in, stack_out), extra| {
@@ -63,8 +65,23 @@ where
                     ),
                 }
             });
+        let const_value =
+            select! { TokenKind::LiteralNumber(number) => number }.map(ASTConst::Value);
+        let const_var = select! { TokenKind::Ident(name) => name }.map(ASTConst::Var);
+        let array = just(TokenKind::LeftSquareBracket)
+            .ignore_then(ty)
+            .then_ignore(just(TokenKind::Semicolon))
+            .then(choice((const_value, const_var)))
+            .then_ignore(just(TokenKind::RightSquareBracket))
+            .map_with(|(element_type, size), extra| {
+                let span: SourceSpan = extra.span();
+                ASTStackEffectItem::Array {
+                    element_type: Box::new(Spanned::new(element_type, span)),
+                    size: Spanned::new(size, span),
+                }
+            });
 
-        stack_var.or(typed).or(lambda)
+        choice((stack_var, typed, lambda, array))
     })
 }
 

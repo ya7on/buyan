@@ -25,7 +25,6 @@ enum CallSegment {
 }
 
 impl CollectHIRStage {
-    #[allow(clippy::too_many_lines)]
     fn analyze_instruction(
         module: &ASTModule,
         word: &ASTWord,
@@ -199,6 +198,16 @@ impl CollectHIRStage {
                     stack_in: result_stack_in,
                     stack_out: result_stack_out,
                     body: result_body,
+                })
+            }
+            ASTInstruction::Array { elements } => {
+                let mut result_body = Vec::new();
+                for element in elements {
+                    let instr = Self::analyze_instruction(module, word, element, hir_ctx)?;
+                    result_body.push(Spanned::new(instr, element.span));
+                }
+                Ok(HIRInstruction::Array {
+                    elements: result_body,
                 })
             }
         }

@@ -5,14 +5,15 @@ use crate::{
     error::DiagnosticMessage,
     stages::semantic::{
         context::{HIRContext, SymbolId, SymbolKind},
-        hir::HIRType,
+        hir::{HIRConst, HIRType},
     },
 };
 
 #[derive(Debug, Default)]
 pub struct Substitution {
-    type_vars: HashMap<SymbolId, HIRType>,
-    stack_vars: HashMap<SymbolId, Vec<HIRType>>,
+    types: HashMap<SymbolId, HIRType>,
+    consts: HashMap<SymbolId, HIRConst>,
+    stacks: HashMap<SymbolId, Vec<HIRType>>,
 }
 
 #[derive(Debug)]
@@ -167,6 +168,91 @@ impl<'a> CallAnalysis<'a> {
         Ok(())
     }
 
+    fn unify_const(
+        &mut self,
+        actual: HIRConst,
+        expected: &HIRConst,
+    ) -> Result<(), DiagnosticMessage> {
+        match expected {
+            HIRConst::Value(expected) => {
+                if actual != HIRConst::Value(*expected) {
+                    return Err(DiagnosticMessage::InvalidStack {
+                        label: "array size mismatch".to_string(),
+                        expected_stack: self
+                            .expected_stack_in
+                            .iter()
+                            .map(|item| self.hir_ctx.format_type(item))
+                            .collect(),
+                        actual_stack: self
+                            .initial_stack
+                            .iter()
+                            .map(|item| self.hir_ctx.format_type(item))
+                            .collect(),
+                        additional_spans: Vec::new(),
+                        span: self.span,
+                    });
+                }
+            }
+            HIRConst::Var(symbol_id) => {
+                if let Some(unified) = self.substitution.consts.get(symbol_id) {
+                    if unified != &actual {
+                        return Err(DiagnosticMessage::InvalidStack {
+                            label: "array size mismatch".to_string(),
+                            expected_stack: self
+                                .expected_stack_in
+                                .iter()
+                                .map(|item| self.hir_ctx.format_type(item))
+                                .collect(),
+                            actual_stack: self
+                                .initial_stack
+                                .iter()
+                                .map(|item| self.hir_ctx.format_type(item))
+                                .collect(),
+                            additional_spans: Vec::new(),
+                            span: self.span,
+                        });
+                    }
+                } else {
+                    self.substitution.consts.insert(*symbol_id, actual);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn unify_array(
+        &mut self,
+        actual: HIRType,
+        expected_element_type: HIRType,
+        expected_size: &HIRConst,
+    ) -> Result<(), DiagnosticMessage> {
+        let HIRType::Array {
+            element_type: actual_element_type,
+            size: actual_size,
+        } = actual
+        else {
+            return Err(DiagnosticMessage::InvalidStack {
+                label: "type mismatch".to_string(),
+                expected_stack: self
+                    .expected_stack_in
+                    .iter()
+                    .map(|item| self.hir_ctx.format_type(item))
+                    .collect(),
+                actual_stack: self
+                    .initial_stack
+                    .iter()
+                    .map(|item| self.hir_ctx.format_type(item))
+                    .collect(),
+                additional_spans: Vec::new(),
+                span: self.span,
+            });
+        };
+
+        self.unify_type_pair(*actual_element_type, expected_element_type)?;
+        self.unify_const(actual_size, expected_size)?;
+        Ok(())
+    }
+
     fn unify_typevar(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
         let has_required_traits = match self.hir_ctx.get(expected) {
             Some(SymbolKind::TypeVar {
@@ -186,10 +272,13 @@ impl<'a> CallAnalysis<'a> {
                         Some(SymbolKind::TypeVar { traits, .. })
                             if traits.iter().any(
                                 |available_trait| available_trait.value == required_trait.value
-                            )
+                        )
                     )
                 }
-                HIRType::Struct(_) | HIRType::StackVar(_) | HIRType::Lambda { .. } => false,
+                HIRType::Struct(_)
+                | HIRType::StackVar(_)
+                | HIRType::Lambda { .. }
+                | HIRType::Array { .. } => false,
             }),
             _ => false,
         };
@@ -211,7 +300,7 @@ impl<'a> CallAnalysis<'a> {
             });
         }
 
-        if let Some(unified) = self.substitution.type_vars.get(&expected) {
+        if let Some(unified) = self.substitution.types.get(&expected) {
             if unified != &top {
                 return Err(DiagnosticMessage::InvalidStack {
                     label: "type mismatch".to_string(),
@@ -230,7 +319,7 @@ impl<'a> CallAnalysis<'a> {
                 });
             }
         } else {
-            self.substitution.type_vars.insert(expected, top);
+            self.substitution.types.insert(expected, top);
         }
         Ok(())
     }
@@ -240,7 +329,7 @@ impl<'a> CallAnalysis<'a> {
         stack: &[HIRType],
         symbol_id: SymbolId,
     ) -> Result<(), DiagnosticMessage> {
-        if let Some(unified) = self.substitution.stack_vars.get(&symbol_id) {
+        if let Some(unified) = self.substitution.stacks.get(&symbol_id) {
             if unified != stack {
                 return Err(DiagnosticMessage::InvalidStack {
                     label: "stack mismatch".to_string(),
@@ -259,9 +348,7 @@ impl<'a> CallAnalysis<'a> {
                 });
             }
         } else {
-            self.substitution
-                .stack_vars
-                .insert(symbol_id, stack.to_vec());
+            self.substitution.stacks.insert(symbol_id, stack.to_vec());
         }
         Ok(())
     }
@@ -286,6 +373,9 @@ impl<'a> CallAnalysis<'a> {
                 stack_out,
             } => {
                 self.unify_lambda(actual, &stack_in, &stack_out)?;
+            }
+            HIRType::Array { element_type, size } => {
+                self.unify_array(actual, *element_type, &size)?;
             }
             HIRType::StackVar(_) => {
                 return Err(DiagnosticMessage::InvalidStack {
@@ -386,46 +476,42 @@ impl<'a> CallAnalysis<'a> {
 
     fn resolve_typevar(&self, symbol_id: SymbolId) -> Result<HIRType, DiagnosticMessage> {
         self.substitution
-            .type_vars
+            .types
             .get(&symbol_id)
             .cloned()
-            .ok_or_else(|| DiagnosticMessage::InvalidStack {
+            .ok_or_else(|| DiagnosticMessage::CannotInferType {
                 label: "cannot infer type variable".to_string(),
-                expected_stack: self
-                    .expected_stack_out
-                    .iter()
-                    .map(|item| self.hir_ctx.format_type(item))
-                    .collect(),
-                actual_stack: self
-                    .initial_stack
-                    .iter()
-                    .map(|item| self.hir_ctx.format_type(item))
-                    .collect(),
-                additional_spans: Vec::new(),
+                span: self.span,
+            })
+    }
+
+    fn resolve_constvar(&self, symbol_id: SymbolId) -> Result<HIRConst, DiagnosticMessage> {
+        self.substitution
+            .consts
+            .get(&symbol_id)
+            .cloned()
+            .ok_or_else(|| DiagnosticMessage::CannotInferType {
+                label: "cannot infer const variable".to_string(),
                 span: self.span,
             })
     }
 
     fn resolve_stackvar(&self, symbol_id: SymbolId) -> Result<Vec<HIRType>, DiagnosticMessage> {
         self.substitution
-            .stack_vars
+            .stacks
             .get(&symbol_id)
             .cloned()
-            .ok_or_else(|| DiagnosticMessage::InvalidStack {
+            .ok_or_else(|| DiagnosticMessage::CannotInferType {
                 label: "cannot infer stack variable".to_string(),
-                expected_stack: self
-                    .expected_stack_out
-                    .iter()
-                    .map(|item| self.hir_ctx.format_type(item))
-                    .collect(),
-                actual_stack: self
-                    .initial_stack
-                    .iter()
-                    .map(|item| self.hir_ctx.format_type(item))
-                    .collect(),
-                additional_spans: Vec::new(),
                 span: self.span,
             })
+    }
+
+    fn substitute_const_value(&self, value: &HIRConst) -> Result<HIRConst, DiagnosticMessage> {
+        match value {
+            HIRConst::Value(value) => Ok(HIRConst::Value(*value)),
+            HIRConst::Var(symbol_id) => self.resolve_constvar(*symbol_id),
+        }
     }
 
     fn substitute_type_value(&self, ty: &HIRType) -> Result<HIRType, DiagnosticMessage> {
@@ -441,6 +527,11 @@ impl<'a> CallAnalysis<'a> {
             } => Ok(HIRType::Lambda {
                 stack_in: self.substitute_stack_value(stack_in)?,
                 stack_out: self.substitute_stack_value(stack_out)?,
+            }),
+
+            HIRType::Array { element_type, size } => Ok(HIRType::Array {
+                element_type: Box::new(self.substitute_type_value(element_type)?),
+                size: self.substitute_const_value(size)?,
             }),
 
             HIRType::StackVar(_) => Err(DiagnosticMessage::InvalidStack {

@@ -51,6 +51,8 @@ pub enum IRInstruction {
     Pack { type_id: TypeId, field_count: usize },
     Unpack { type_id: TypeId },
     GetField { type_id: TypeId, field_index: usize },
+    PackArray { element_count: usize },
+    ArrayIndex,
     Drop,
     Dup,
     Swap,

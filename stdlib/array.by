@@ -1,0 +1,9 @@
+module std.array;
+
+#[builtin]
+def index<T, N>([T; N], u8 -- T) end
+
+#[builtin]
+def first<T, N>([T; N] -- T)
+    0u8 index
+end

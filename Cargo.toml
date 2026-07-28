@@ -21,6 +21,7 @@ cast_lossless = "allow"
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_sign_loss = "allow"
+too_many_lines = "allow"
 
 [dependencies]
 ariadne = "0.6.0"

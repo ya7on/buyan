@@ -56,7 +56,6 @@ impl LowerStage {
         ))
     }
 
-    #[allow(clippy::too_many_lines)]
     fn lower_ir_word(
         ir_ctx: &IRContext,
         body: &[Spanned<HIRInstruction>],
@@ -68,7 +67,7 @@ impl LowerStage {
         let mut errors = Vec::new();
         let mut blocks = Vec::new();
         let mut basicblock = BasicBlockBuilder::default();
-        for instruction in body {
+        'instructions: for instruction in body {
             match &instruction.value {
                 HIRInstruction::Call { name, symbol_id } => {
                     let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
@@ -175,6 +174,10 @@ impl LowerStage {
                         }
                         "std.math.lt" => {
                             basicblock.push(Spanned::new(IRInstruction::Lt, instruction.span));
+                        }
+                        "std.array.index" => {
+                            basicblock
+                                .push(Spanned::new(IRInstruction::ArrayIndex, instruction.span));
                         }
                         // Real word call
                         _ => {
@@ -302,6 +305,32 @@ impl LowerStage {
                     lambda_words[lambda_slot] = Spanned::new(lambda_word, instruction.span);
                     basicblock.push(Spanned::new(
                         IRInstruction::PushLambda { word_id },
+                        instruction.span,
+                    ));
+                }
+                HIRInstruction::Array { elements } => {
+                    for element in elements {
+                        let HIRInstruction::Literal(literal) = &element.value else {
+                            errors.push(DiagnosticMessage::InvalidArrayValue {
+                                label: "array elements must be literals".to_string(),
+                                span: element.span,
+                            });
+                            continue 'instructions;
+                        };
+                        let value = match literal {
+                            HIRLiteral::Bool(value) => IRConstant::Bool(*value),
+                            HIRLiteral::U8(value) => IRConstant::U8(*value),
+                            HIRLiteral::String(value) => IRConstant::String(value.clone()),
+                        };
+                        basicblock.push(Spanned::new(
+                            IRInstruction::PushConstant { value },
+                            element.span,
+                        ));
+                    }
+                    basicblock.push(Spanned::new(
+                        IRInstruction::PackArray {
+                            element_count: elements.len(),
+                        },
                         instruction.span,
                     ));
                 }

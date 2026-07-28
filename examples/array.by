@@ -1,0 +1,11 @@
+import std.array;
+import std.io;
+
+module array_example;
+
+def main( -- )
+    [4u8, 8u8, 15u8, 16u8, 23u8, 42u8]
+
+    std.array.first
+    std.io.println
+end

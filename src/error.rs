@@ -98,6 +98,14 @@ pub enum DiagnosticMessage {
         expected_stack: Vec<String>,
         actual_stack: Vec<String>,
     },
+    InvalidArrayValue {
+        label: String,
+        span: Span,
+    },
+    CannotInferType {
+        label: String,
+        span: Span,
+    },
     EmptyWord {
         name: String,
         span: Span,
@@ -135,6 +143,8 @@ impl DiagnosticMessage {
             Self::InvalidStack { .. } => 12,
             Self::EmptyWord { .. } => 13,
             Self::UnusedImport { .. } => 14,
+            Self::InvalidArrayValue { .. } => 16,
+            Self::CannotInferType { .. } => 17,
         }
     }
 
@@ -152,7 +162,9 @@ impl DiagnosticMessage {
             | Self::InvalidSymbol { span, .. }
             | Self::RecursiveStruct { span, .. }
             | Self::InvalidFieldIndex { span, .. }
-            | Self::InvalidStack { span, .. } => Some(*span),
+            | Self::InvalidStack { span, .. }
+            | Self::InvalidArrayValue { span, .. }
+            | Self::CannotInferType { span, .. } => Some(*span),
             Self::Unknown { .. } | Self::RuntimeError(_) | Self::FileNotFound { .. } => None,
         }
     }
@@ -193,6 +205,8 @@ impl DiagnosticMessage {
             Self::RecursiveStruct { .. } => "Recursive Struct",
             Self::InvalidFieldIndex { .. } => "Invalid Field Index",
             Self::InvalidStack { .. } => "Invalid Stack",
+            Self::InvalidArrayValue { .. } => "Invalid Array Value",
+            Self::CannotInferType { .. } => "Cannot Infer Type",
             Self::EmptyWord { .. } => "Empty Word",
             Self::UnusedImport { .. } => "Unused Import",
         }
@@ -245,6 +259,9 @@ impl DiagnosticMessage {
                 expected_stack.join(", "),
                 actual_stack.join(", ")
             ),
+            Self::InvalidArrayValue { label, .. } | Self::CannotInferType { label, .. } => {
+                label.clone()
+            }
             Self::EmptyWord { name, .. } => {
                 format!("word '{name}' has an empty body")
             }

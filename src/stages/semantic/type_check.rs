@@ -4,7 +4,9 @@ use crate::{
     pipeline::{Stage, StageResult},
     stages::semantic::{
         context::{HIRContext, SymbolKind},
-        hir::{HIRInstruction, HIRLiteral, HIRProgram, HIRType, HIRWord, HIRWordAttribute},
+        hir::{
+            HIRConst, HIRInstruction, HIRLiteral, HIRProgram, HIRType, HIRWord, HIRWordAttribute,
+        },
         stack_analysis::StackAnalysis,
     },
 };
@@ -13,7 +15,6 @@ use crate::{
 pub struct TypeCheckStage;
 
 impl TypeCheckStage {
-    #[allow(clippy::too_many_lines)]
     fn type_check_instruction(
         hir_ctx: &HIRContext,
         instruction: &Spanned<HIRInstruction>,
@@ -144,6 +145,55 @@ impl TypeCheckStage {
                         .into_iter()
                         .collect(),
                 )?;
+            }
+            HIRInstruction::Array { elements } => {
+                let mut element_type = None;
+                for element in elements {
+                    let HIRInstruction::Literal(literal) = &element.value else {
+                        return Err(DiagnosticMessage::InvalidArrayValue {
+                            label: "array elements must be literals".to_string(),
+                            span: element.span,
+                        });
+                    };
+                    let name = match literal {
+                        HIRLiteral::Bool(_) => "bool",
+                        HIRLiteral::U8(_) => "u8",
+                        HIRLiteral::String(_) => "string",
+                    };
+                    let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
+                        return Err(DiagnosticMessage::SymbolNotFound {
+                            name: name.to_string(),
+                            span: element.span,
+                        });
+                    };
+                    let actual_type = HIRType::BuiltIn(symbol_id);
+
+                    let Some(expected_type) = &element_type else {
+                        element_type = Some(actual_type);
+                        continue;
+                    };
+                    if expected_type != &actual_type {
+                        return Err(DiagnosticMessage::InvalidArrayValue {
+                            label: format!(
+                                "array element type mismatch; expected {}, found {}",
+                                hir_ctx.format_type(expected_type),
+                                hir_ctx.format_type(&actual_type)
+                            ),
+                            span: element.span,
+                        });
+                    }
+                }
+
+                let Some(element_type) = element_type else {
+                    return Err(DiagnosticMessage::CannotInferType {
+                        label: "cannot infer empty array element type".to_string(),
+                        span: instruction.span,
+                    });
+                };
+                stack_analysis.push(HIRType::Array {
+                    element_type: Box::new(element_type),
+                    size: HIRConst::Value(elements.len()),
+                });
             }
         }
         Ok(())
