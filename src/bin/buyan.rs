@@ -115,5 +115,11 @@ fn main() {
 
     print_errors(&pipeline.context, &pipeline.diagnostics.items);
 
-    pipeline.stage(IRInterpreter::default());
+    let diagnostic_count = pipeline.diagnostics.items.len();
+    let pipeline = pipeline.stage(IRInterpreter::default());
+
+    print_errors(
+        &pipeline.context,
+        &pipeline.diagnostics.items[diagnostic_count..],
+    );
 }
