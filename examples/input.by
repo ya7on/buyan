@@ -20,7 +20,9 @@ def main( -- )
     std.io.input
 
     "67\n" std.math.eq
-    | -- | { "sixseven" std.io.println }
-    | -- | { "not sixseven" std.io.println }
+    | -- string | { "sixseven" }
+    | -- string | { "not sixseven" }
     std.cfg.if
+
+    std.io.println
 end
