@@ -16,7 +16,6 @@ use buyan::{
         },
         semantic::{
             collect_hir::CollectHIRStage, collect_names::CollectNamesStage, hir::HIRProgram,
-            type_check::TypeCheckStage,
         },
     },
 };
@@ -73,10 +72,7 @@ impl TestExecutor {
             },
         });
         self.ast = Some(pipeline.dump().cloned().map_err(|err| err.clone()));
-        let pipeline = pipeline
-            .stage(CollectNamesStage)
-            .stage(CollectHIRStage)
-            .stage(TypeCheckStage);
+        let pipeline = pipeline.stage(CollectNamesStage).stage(CollectHIRStage);
         self.hir = Some(
             pipeline
                 .dump()

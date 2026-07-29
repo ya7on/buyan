@@ -9,9 +9,10 @@ use crate::{
         semantic::{
             context::{HIRContext, SymbolKind},
             hir::{
-                HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRStruct, HIRWord,
-                HIRWordAttribute, HIRWordSignature,
+                HIRConst, HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRStruct, HIRType,
+                HIRWord, HIRWordAttribute, HIRWordSignature,
             },
+            stack_analysis::StackAnalysis,
         },
     },
 };
@@ -30,15 +31,24 @@ impl CollectHIRStage {
         word: &ASTWord,
         instruction: &Spanned<ASTInstruction>,
         hir_ctx: &HIRContext,
+        stack_analysis: &mut StackAnalysis<'_>,
     ) -> Result<HIRInstruction, DiagnosticMessage> {
         match &instruction.value {
-            ASTInstruction::Literal(literal) => match literal {
-                ASTLiteral::Bool(value) => Ok(HIRInstruction::Literal(HIRLiteral::Bool(*value))),
-                ASTLiteral::U8(value) => Ok(HIRInstruction::Literal(HIRLiteral::U8(*value))),
-                ASTLiteral::String(value) => Ok(HIRInstruction::Literal(HIRLiteral::String(
-                    value.to_owned(),
-                ))),
-            },
+            ASTInstruction::Literal(literal) => {
+                let (literal, name) = match literal {
+                    ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
+                    ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
+                    ASTLiteral::String(value) => (HIRLiteral::String(value.to_owned()), "string"),
+                };
+                let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
+                    return Err(DiagnosticMessage::SymbolNotFound {
+                        name: name.to_string(),
+                        span: instruction.span,
+                    });
+                };
+                stack_analysis.push(HIRType::BuiltIn(symbol_id));
+                Ok(HIRInstruction::Literal(literal))
+            }
             ASTInstruction::Call(call) => {
                 let segments = call
                     .0
@@ -97,6 +107,12 @@ impl CollectHIRStage {
                                 span: instruction.span,
                             });
                         }
+                        stack_analysis.apply_call(
+                            &[],
+                            vec![HIRType::Struct(struct_id)],
+                            vec![fields[*field_index].value.clone()],
+                            instruction.span,
+                        )?;
                         Ok(HIRInstruction::GetField {
                             name: name.clone(),
                             struct_id,
@@ -135,9 +151,28 @@ impl CollectHIRStage {
                                 span: instruction.span,
                             });
                         };
+                        let Some(SymbolKind::Word {
+                            typevars,
+                            stack_in,
+                            stack_out,
+                            ..
+                        }) = hir_ctx.get(symbol_id)
+                        else {
+                            return Err(DiagnosticMessage::SymbolNotFound {
+                                name: full_name,
+                                span: instruction.span,
+                            });
+                        };
+                        let type_args = stack_analysis.apply_call(
+                            &typevars.iter().map(|item| item.value).collect::<Vec<_>>(),
+                            stack_in.iter().map(|item| &item.value).cloned().collect(),
+                            stack_out.iter().map(|item| &item.value).cloned().collect(),
+                            instruction.span,
+                        )?;
                         Ok(HIRInstruction::Call {
                             name: full_name,
                             symbol_id,
+                            type_args,
                         })
                     }
                 }
@@ -162,12 +197,30 @@ impl CollectHIRStage {
                     Some(SymbolKind::Struct { name, .. }) => name.clone(),
                     _ => name.to_string(),
                 };
+                let Some(SymbolKind::Struct { fields, .. }) = hir_ctx.get(struct_id) else {
+                    return Err(DiagnosticMessage::SymbolNotFound {
+                        name: name.to_string(),
+                        span: instruction.span,
+                    });
+                };
                 if matches!(instruction.value, ASTInstruction::Pack(_)) {
+                    stack_analysis.apply_call(
+                        &[],
+                        fields.iter().map(|item| item.value.clone()).collect(),
+                        vec![HIRType::Struct(struct_id)],
+                        instruction.span,
+                    )?;
                     Ok(HIRInstruction::Pack {
                         name: full_name,
                         struct_id,
                     })
                 } else {
+                    stack_analysis.apply_call(
+                        &[],
+                        vec![HIRType::Struct(struct_id)],
+                        fields.iter().map(|item| item.value.clone()).collect(),
+                        instruction.span,
+                    )?;
                     Ok(HIRInstruction::Unpack {
                         name: full_name,
                         struct_id,
@@ -189,10 +242,32 @@ impl CollectHIRStage {
                     let ty = hir_ctx.handle_stack_item(&module.name, &wordpath, item)?;
                     result_stack_out.push(ty);
                 }
+                stack_analysis.push(HIRType::Lambda {
+                    stack_in: result_stack_in.clone(),
+                    stack_out: result_stack_out.clone(),
+                });
+
+                let mut lambda_stack_analysis =
+                    StackAnalysis::new(hir_ctx, result_stack_in.clone());
                 for instruction in body {
-                    let instr = Self::analyze_instruction(module, word, instruction, hir_ctx)?;
+                    let instr = Self::analyze_instruction(
+                        module,
+                        word,
+                        instruction,
+                        hir_ctx,
+                        &mut lambda_stack_analysis,
+                    )?;
                     result_body.push(Spanned::new(instr, instruction.span));
                 }
+                lambda_stack_analysis.match_stack(
+                    &result_stack_out,
+                    instruction.span,
+                    result_body
+                        .last()
+                        .map(|instruction| instruction.span)
+                        .into_iter()
+                        .collect(),
+                )?;
 
                 Ok(HIRInstruction::Lambda {
                     stack_in: result_stack_in,
@@ -202,10 +277,55 @@ impl CollectHIRStage {
             }
             ASTInstruction::Array { elements } => {
                 let mut result_body = Vec::new();
+                let mut element_type = None;
                 for element in elements {
-                    let instr = Self::analyze_instruction(module, word, element, hir_ctx)?;
-                    result_body.push(Spanned::new(instr, element.span));
+                    let ASTInstruction::Literal(literal) = &element.value else {
+                        return Err(DiagnosticMessage::InvalidArrayValue {
+                            label: "array elements must be literals".to_string(),
+                            span: element.span,
+                        });
+                    };
+                    let (literal, name) = match literal {
+                        ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
+                        ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
+                        ASTLiteral::String(value) => {
+                            (HIRLiteral::String(value.to_owned()), "string")
+                        }
+                    };
+                    let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
+                        return Err(DiagnosticMessage::SymbolNotFound {
+                            name: name.to_string(),
+                            span: element.span,
+                        });
+                    };
+                    let actual_type = HIRType::BuiltIn(symbol_id);
+                    if let Some(expected_type) = &element_type {
+                        if expected_type != &actual_type {
+                            return Err(DiagnosticMessage::InvalidArrayValue {
+                                label: format!(
+                                    "array element type mismatch; expected {}, found {}",
+                                    hir_ctx.format_type(expected_type),
+                                    hir_ctx.format_type(&actual_type)
+                                ),
+                                span: element.span,
+                            });
+                        }
+                    } else {
+                        element_type = Some(actual_type);
+                    }
+                    result_body.push(Spanned::new(HIRInstruction::Literal(literal), element.span));
                 }
+
+                let Some(element_type) = element_type else {
+                    return Err(DiagnosticMessage::CannotInferType {
+                        label: "cannot infer empty array element type".to_string(),
+                        span: instruction.span,
+                    });
+                };
+                stack_analysis.push(HIRType::Array {
+                    element_type: Box::new(element_type),
+                    size: HIRConst::Value(elements.len()),
+                });
                 Ok(HIRInstruction::Array {
                     elements: result_body,
                 })
@@ -279,12 +399,32 @@ impl CollectHIRStage {
             });
         };
 
+        let mut stack_analysis = StackAnalysis::new(
+            hir_ctx,
+            stack_in.iter().map(|item| &item.value).cloned().collect(),
+        );
         let mut body = Vec::with_capacity(word.body.len());
         for instruction in &word.body {
             body.push(Spanned::new(
-                Self::analyze_instruction(module, word, instruction, hir_ctx)?,
+                Self::analyze_instruction(module, word, instruction, hir_ctx, &mut stack_analysis)?,
                 instruction.span,
             ));
+        }
+
+        if !attributes.contains(&HIRWordAttribute::BuiltIn) {
+            let expected_stack = stack_out
+                .iter()
+                .map(|item| &item.value)
+                .cloned()
+                .collect::<Vec<_>>();
+            stack_analysis.match_stack(
+                &expected_stack,
+                word.stack_effect.span,
+                body.last()
+                    .map(|instruction| instruction.span)
+                    .into_iter()
+                    .collect(),
+            )?;
         }
 
         Ok(HIRWord {

@@ -11,10 +11,7 @@ use buyan::{
         interpreter::executor::IRInterpreter,
         lower::{collect::CollectSymbolsStage, stage::LowerStage},
         parse::stage::ParseStage,
-        semantic::{
-            collect_hir::CollectHIRStage, collect_names::CollectNamesStage,
-            type_check::TypeCheckStage,
-        },
+        semantic::{collect_hir::CollectHIRStage, collect_names::CollectNamesStage},
     },
 };
 use clap::Parser;
@@ -104,7 +101,6 @@ fn main() {
         // .stage(DumpAst)
         .stage(CollectNamesStage)
         .stage(CollectHIRStage)
-        .stage(TypeCheckStage)
         .stage(
             LintPass::default()
                 .lint(EmptyWord)

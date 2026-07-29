@@ -603,14 +603,18 @@ impl<'a> StackAnalysis<'a> {
 
     pub(crate) fn apply_call(
         &mut self,
+        typevars: &[SymbolId],
         stack_in: Vec<HIRType>,
         stack_out: Vec<HIRType>,
         span: Span,
-    ) -> Result<(), DiagnosticMessage> {
+    ) -> Result<Vec<HIRType>, DiagnosticMessage> {
         let mut call_analysis =
             CallAnalysis::new(self.hir_ctx, self.stack.clone(), stack_in, stack_out, span);
         self.stack = call_analysis.apply()?;
-        Ok(())
+        Ok(typevars
+            .iter()
+            .filter_map(|id| call_analysis.substitution.types.get(id).cloned())
+            .collect())
     }
 
     pub(crate) fn match_stack(

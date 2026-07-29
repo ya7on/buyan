@@ -84,7 +84,7 @@ pub enum HIRInstruction {
     Call {
         name: String,
         symbol_id: SymbolId,
-        // substitutions: HashMap<SymbolId, SymbolId>,
+        type_args: Vec<HIRType>,
     },
     Pack {
         name: String,

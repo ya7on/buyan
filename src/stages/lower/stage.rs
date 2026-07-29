@@ -69,7 +69,9 @@ impl LowerStage {
         let mut basicblock = BasicBlockBuilder::default();
         'instructions: for instruction in body {
             match &instruction.value {
-                HIRInstruction::Call { name, symbol_id } => {
+                HIRInstruction::Call {
+                    name, symbol_id, ..
+                } => {
                     let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
                         errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
