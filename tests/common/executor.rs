@@ -8,7 +8,10 @@ use buyan::{
     fs::FileSystem,
     pipeline::PipelineBuilder,
     stages::{
-        lower::{collect::CollectSymbolsStage, ir::IRProgram, stage::LowerStage},
+        lower::{
+            collect::CollectSymbolsStage, ir::IRProgram, monomorphize::MonomorphizeStage,
+            stage::LowerStage,
+        },
         parse::{
             ast::{ASTModule, ASTProgram},
             lexer::TokenKind,
@@ -79,7 +82,10 @@ impl TestExecutor {
                 .map(|(_ctx, hir)| hir.clone())
                 .map_err(|err| err.clone()),
         );
-        let pipeline = pipeline.stage(CollectSymbolsStage).stage(LowerStage);
+        let pipeline = pipeline
+            .stage(CollectSymbolsStage)
+            .stage(MonomorphizeStage)
+            .stage(LowerStage);
         self.ir = Some(
             pipeline
                 .dump()

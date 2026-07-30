@@ -9,7 +9,7 @@ use buyan::{
     pipeline::PipelineBuilder,
     stages::{
         interpreter::executor::IRInterpreter,
-        lower::{collect::CollectSymbolsStage, stage::LowerStage},
+        lower::{collect::CollectSymbolsStage, monomorphize::MonomorphizeStage, stage::LowerStage},
         parse::stage::ParseStage,
         semantic::{collect_hir::CollectHIRStage, collect_names::CollectNamesStage},
     },
@@ -107,6 +107,7 @@ fn main() {
                 .lint(UnusedImport::default()),
         )
         .stage(CollectSymbolsStage)
+        .stage(MonomorphizeStage)
         .stage(LowerStage);
 
     print_errors(&pipeline.context, &pipeline.diagnostics.items);

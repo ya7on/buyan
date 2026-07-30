@@ -7,10 +7,14 @@ use crate::{
             context::{IRContext, WordId},
             ir::{
                 BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator,
-                IRWord,
+                IRType, IRWord,
             },
+            monomorphize::substitute_type,
         },
-        semantic::hir::{HIRInstruction, HIRLiteral, HIRProgram, HIRWord},
+        semantic::{
+            context::SymbolId,
+            hir::{HIRConst, HIRInstruction, HIRLiteral, HIRProgram, HIRType},
+        },
     },
 };
 
@@ -37,23 +41,25 @@ impl BasicBlockBuilder {
 pub struct LowerStage;
 
 impl LowerStage {
-    fn lower_word(
-        ir_ctx: &IRContext,
-        word: &Spanned<HIRWord>,
-        lambda_words: &mut Vec<Spanned<IRWord>>,
-        base_word_count: usize,
-    ) -> Result<Spanned<IRWord>, Vec<DiagnosticMessage>> {
-        Ok(Spanned::new(
-            Self::lower_ir_word(
-                ir_ctx,
-                &word.body,
-                word.entrypoint,
-                word.span,
-                lambda_words,
-                base_word_count,
-            )?,
-            word.span,
-        ))
+    fn lower_type(ir_ctx: &IRContext, ty: &HIRType) -> Option<IRType> {
+        match ty {
+            HIRType::BuiltIn(symbol_id) | HIRType::Struct(symbol_id) => ir_ctx
+                .symbol_id_to_type_id
+                .get(symbol_id)
+                .and_then(|type_id| ir_ctx.get_type(*type_id))
+                .cloned(),
+            HIRType::StackVar(_) | HIRType::TypeVar(_) => None,
+            HIRType::Lambda { .. } => Some(IRType::Lambda),
+            HIRType::Array { element_type, size } => {
+                let HIRConst::Value(size) = size else {
+                    return None;
+                };
+                Some(IRType::Array {
+                    element_type: Box::new(Self::lower_type(ir_ctx, element_type)?),
+                    size: *size,
+                })
+            }
+        }
     }
 
     fn lower_ir_word(
@@ -61,6 +67,7 @@ impl LowerStage {
         body: &[Spanned<HIRInstruction>],
         entrypoint: bool,
         span: Span,
+        substitutions: &[(SymbolId, HIRType)],
         lambda_words: &mut Vec<Spanned<IRWord>>,
         base_word_count: usize,
     ) -> Result<IRWord, Vec<DiagnosticMessage>> {
@@ -70,25 +77,34 @@ impl LowerStage {
         'instructions: for instruction in body {
             match &instruction.value {
                 HIRInstruction::Call {
-                    name, symbol_id, ..
+                    name,
+                    symbol_id,
+                    type_args,
                 } => {
-                    let Some(word_id) = ir_ctx.symbol_id_to_word_id.get(symbol_id).copied() else {
-                        errors.push(DiagnosticMessage::SymbolNotFound {
-                            name: name.clone(),
+                    let Some(concrete_type_args) = type_args
+                        .iter()
+                        .map(|ty| substitute_type(ty, substitutions))
+                        .collect::<Option<Vec<_>>>()
+                    else {
+                        errors.push(DiagnosticMessage::CannotInferType {
+                            label: format!("cannot resolve type arguments for '{name}'"),
                             span: instruction.span,
                         });
                         continue;
                     };
-                    let Some(word_name) = ir_ctx.get_word(word_id).map(|word| word.name.as_str())
+                    let Some(type_args) = concrete_type_args
+                        .iter()
+                        .map(|ty| Self::lower_type(ir_ctx, ty))
+                        .collect::<Option<Vec<_>>>()
                     else {
-                        errors.push(DiagnosticMessage::SymbolNotFound {
-                            name: name.clone(),
+                        errors.push(DiagnosticMessage::CannotInferType {
+                            label: format!("cannot lower type arguments for '{name}'"),
                             span: instruction.span,
                         });
                         continue;
                     };
 
-                    match word_name {
+                    match name.as_str() {
                         // Builtin call
                         "std.cfg.if" => {
                             let current_block_id = blocks.len();
@@ -148,46 +164,154 @@ impl LowerStage {
                                 .push(Spanned::new(IRInstruction::CallIndirect, instruction.span));
                         }
                         "std.stack.drop" => {
-                            basicblock.push(Spanned::new(IRInstruction::Drop, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Drop { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.stack.dup" => {
-                            basicblock.push(Spanned::new(IRInstruction::Dup, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Dup { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.stack.swap" => {
-                            basicblock.push(Spanned::new(IRInstruction::Swap, instruction.span));
+                            let (Some(lower), Some(upper)) = (type_args.first(), type_args.get(1))
+                            else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type arguments for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Swap {
+                                    lower: lower.clone(),
+                                    upper: upper.clone(),
+                                },
+                                instruction.span,
+                            ));
                         }
                         "std.math.add" => {
-                            basicblock.push(Spanned::new(IRInstruction::Add, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Add { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.math.sub" => {
-                            basicblock.push(Spanned::new(IRInstruction::Sub, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Sub { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.math.mul" => {
-                            basicblock.push(Spanned::new(IRInstruction::Mul, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Mul { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.math.div" => {
-                            basicblock.push(Spanned::new(IRInstruction::Div, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Div { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.math.eq" => {
-                            basicblock.push(Spanned::new(IRInstruction::Eq, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Eq { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.math.gt" => {
-                            basicblock.push(Spanned::new(IRInstruction::Gt, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Gt { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.math.lt" => {
-                            basicblock.push(Spanned::new(IRInstruction::Lt, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Lt { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.array.index" => {
                             basicblock
                                 .push(Spanned::new(IRInstruction::ArrayIndex, instruction.span));
                         }
                         // Real word call
-                        _ => {
-                            basicblock.push(Spanned::new(
+                        _ => match ir_ctx.get_word_id(*symbol_id, &concrete_type_args) {
+                            Some(word_id) => basicblock.push(Spanned::new(
                                 IRInstruction::CallDirect { word_id },
                                 instruction.span,
-                            ));
-                        }
+                            )),
+                            None => errors.push(DiagnosticMessage::SymbolNotFound {
+                                name: name.clone(),
+                                span: instruction.span,
+                            }),
+                        },
                     }
                 }
                 HIRInstruction::Literal(literal) => match literal {
@@ -224,7 +348,7 @@ impl LowerStage {
                         });
                         continue;
                     };
-                    let Some(type_info) = ir_ctx.get_type(type_id) else {
+                    let Some(IRType::Struct { fields }) = ir_ctx.get_type(type_id) else {
                         errors.push(DiagnosticMessage::SymbolNotFound {
                             name: name.clone(),
                             span: instruction.span,
@@ -234,7 +358,7 @@ impl LowerStage {
                     basicblock.push(Spanned::new(
                         IRInstruction::Pack {
                             type_id,
-                            field_count: type_info.field_count,
+                            field_count: fields.len(),
                         },
                         instruction.span,
                     ));
@@ -294,6 +418,7 @@ impl LowerStage {
                         body,
                         false,
                         instruction.span,
+                        substitutions,
                         lambda_words,
                         base_word_count,
                     ) {
@@ -363,14 +488,40 @@ impl Stage<CompileContext> for LowerStage {
         let mut lambda_words = Vec::new();
         let base_word_count = ir_ctx.words.len();
 
-        for module in &hir_program.modules {
-            for word in &module.words {
-                match Self::lower_word(&ir_ctx, word, &mut lambda_words, base_word_count) {
-                    Ok(word) => result.words.push(word),
-                    Err(err) => {
-                        for error in err {
-                            diagnostics.emit_fatal(error);
-                        }
+        let words = hir_program
+            .modules
+            .iter()
+            .flat_map(|module| module.words.iter())
+            .map(|word| (word.id, word))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        for instance in &ir_ctx.words {
+            let Some(word) = words.get(&instance.source_word) else {
+                diagnostics.emit_fatal(DiagnosticMessage::Unknown {
+                    label: format!("source word '{}' not found", instance.source_word.0),
+                });
+                continue;
+            };
+            let substitutions = word
+                .signature
+                .type_vars
+                .iter()
+                .map(|var| var.value)
+                .zip(instance.type_args.iter().cloned())
+                .collect::<Vec<_>>();
+            match Self::lower_ir_word(
+                &ir_ctx,
+                &word.body,
+                word.entrypoint,
+                word.span,
+                &substitutions,
+                &mut lambda_words,
+                base_word_count,
+            ) {
+                Ok(ir_word) => result.words.push(Spanned::new(ir_word, word.span)),
+                Err(err) => {
+                    for error in err {
+                        diagnostics.emit_fatal(error);
                     }
                 }
             }

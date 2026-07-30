@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::stages::semantic::context::SymbolId;
+use crate::stages::{
+    lower::ir::IRType,
+    semantic::{context::SymbolId, hir::HIRType},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WordId(pub usize);
@@ -22,39 +25,42 @@ impl TypeId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WordIRInfo {
     pub name: String,
-}
-
-#[derive(Debug)]
-pub struct TypeIRInfo {
-    pub name: String,
-    pub field_count: usize,
+    pub source_word: SymbolId,
+    pub type_args: Vec<HIRType>,
 }
 
 #[derive(Debug, Default)]
 pub struct IRContext {
-    pub symbol_id_to_word_id: HashMap<SymbolId, WordId>,
     pub words: Vec<WordIRInfo>,
     pub symbol_id_to_type_id: HashMap<SymbolId, TypeId>,
-    pub types: Vec<TypeIRInfo>,
+    pub types: Vec<IRType>,
 }
 
 impl IRContext {
-    pub fn register_word(&mut self, symbol_id: SymbolId, word: WordIRInfo) -> Option<WordId> {
+    pub fn register_word(&mut self, word: WordIRInfo) -> Option<WordId> {
+        if self
+            .get_word_id(word.source_word, &word.type_args)
+            .is_some()
+        {
+            return None;
+        }
         let word_id = WordId(self.words.len());
         self.words.push(word);
-        self.symbol_id_to_word_id.insert(symbol_id, word_id);
         Some(word_id)
     }
 
     #[must_use]
-    pub fn get_word(&self, word_id: WordId) -> Option<&WordIRInfo> {
-        self.words.get(word_id.id())
+    pub fn get_word_id(&self, source_word: SymbolId, type_args: &[HIRType]) -> Option<WordId> {
+        self.words
+            .iter()
+            .position(|word| word.source_word == source_word && word.type_args == type_args)
+            .map(WordId)
     }
 
-    pub fn register_type(&mut self, symbol_id: SymbolId, ty: TypeIRInfo) -> Option<TypeId> {
+    pub fn register_type(&mut self, symbol_id: SymbolId, ty: IRType) -> Option<TypeId> {
         let type_id = TypeId(self.types.len());
         self.types.push(ty);
         self.symbol_id_to_type_id.insert(symbol_id, type_id);
@@ -62,7 +68,7 @@ impl IRContext {
     }
 
     #[must_use]
-    pub fn get_type(&self, type_id: TypeId) -> Option<&TypeIRInfo> {
+    pub fn get_type(&self, type_id: TypeId) -> Option<&IRType> {
         self.types.get(type_id.id())
     }
 }

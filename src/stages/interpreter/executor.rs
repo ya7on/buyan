@@ -185,7 +185,7 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("array index out of bounds"))?;
                     self.stack.push(element);
                 }
-                IRInstruction::Swap => {
+                IRInstruction::Swap { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -197,7 +197,7 @@ impl IRInterpreter {
                     self.stack.push(rhs);
                     self.stack.push(lhs);
                 }
-                IRInstruction::Dup => {
+                IRInstruction::Dup { .. } => {
                     let value = self
                         .stack
                         .last()
@@ -205,12 +205,12 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     self.stack.push(value);
                 }
-                IRInstruction::Drop => {
+                IRInstruction::Drop { .. } => {
                     self.stack
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                 }
-                IRInstruction::Add => {
+                IRInstruction::Add { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -226,7 +226,7 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
-                IRInstruction::Sub => {
+                IRInstruction::Sub { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -242,7 +242,7 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
-                IRInstruction::Mul => {
+                IRInstruction::Mul { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -258,7 +258,7 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
-                IRInstruction::Div => {
+                IRInstruction::Div { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -274,7 +274,7 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
-                IRInstruction::Eq => {
+                IRInstruction::Eq { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -296,7 +296,7 @@ impl IRInterpreter {
                         _ => todo!(),
                     }
                 }
-                IRInstruction::Gt => {
+                IRInstruction::Gt { .. } => {
                     let rhs = self
                         .stack
                         .pop()
@@ -312,7 +312,7 @@ impl IRInterpreter {
                         _ => panic!("gt expects u8 operands"),
                     }
                 }
-                IRInstruction::Lt => {
+                IRInstruction::Lt { .. } => {
                     let rhs = self
                         .stack
                         .pop()

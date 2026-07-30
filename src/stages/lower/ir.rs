@@ -42,6 +42,21 @@ pub enum IRConstant {
     String(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IRType {
+    Bool,
+    U8,
+    String,
+    Struct {
+        fields: Vec<Self>,
+    },
+    Array {
+        element_type: Box<Self>,
+        size: usize,
+    },
+    Lambda,
+}
+
 #[derive(Debug, Clone)]
 pub enum IRInstruction {
     PushConstant { value: IRConstant },
@@ -53,16 +68,16 @@ pub enum IRInstruction {
     GetField { type_id: TypeId, field_index: usize },
     PackArray { element_count: usize },
     ArrayIndex,
-    Drop,
-    Dup,
-    Swap,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Eq,
-    Gt,
-    Lt,
+    Drop { ty: IRType },
+    Dup { ty: IRType },
+    Swap { lower: IRType, upper: IRType },
+    Add { ty: IRType },
+    Sub { ty: IRType },
+    Mul { ty: IRType },
+    Div { ty: IRType },
+    Eq { ty: IRType },
+    Gt { ty: IRType },
+    Lt { ty: IRType },
     Print,
     Input,
     Flush,
