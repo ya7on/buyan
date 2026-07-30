@@ -102,6 +102,9 @@ pub enum DiagnosticMessage {
         label: String,
         span: Span,
     },
+    NonAsciiString {
+        span: Span,
+    },
     CannotInferType {
         label: String,
         span: Span,
@@ -145,6 +148,7 @@ impl DiagnosticMessage {
             Self::UnusedImport { .. } => 14,
             Self::InvalidArrayValue { .. } => 16,
             Self::CannotInferType { .. } => 17,
+            Self::NonAsciiString { .. } => 18,
         }
     }
 
@@ -164,6 +168,7 @@ impl DiagnosticMessage {
             | Self::InvalidFieldIndex { span, .. }
             | Self::InvalidStack { span, .. }
             | Self::InvalidArrayValue { span, .. }
+            | Self::NonAsciiString { span }
             | Self::CannotInferType { span, .. } => Some(*span),
             Self::Unknown { .. } | Self::RuntimeError(_) | Self::FileNotFound { .. } => None,
         }
@@ -206,6 +211,7 @@ impl DiagnosticMessage {
             Self::InvalidFieldIndex { .. } => "Invalid Field Index",
             Self::InvalidStack { .. } => "Invalid Stack",
             Self::InvalidArrayValue { .. } => "Invalid Array Value",
+            Self::NonAsciiString { .. } => "Invalid String Literal",
             Self::CannotInferType { .. } => "Cannot Infer Type",
             Self::EmptyWord { .. } => "Empty Word",
             Self::UnusedImport { .. } => "Unused Import",
@@ -261,6 +267,9 @@ impl DiagnosticMessage {
             ),
             Self::InvalidArrayValue { label, .. } | Self::CannotInferType { label, .. } => {
                 label.clone()
+            }
+            Self::NonAsciiString { .. } => {
+                "string literals must contain only ASCII characters".to_string()
             }
             Self::EmptyWord { name, .. } => {
                 format!("word '{name}' has an empty body")

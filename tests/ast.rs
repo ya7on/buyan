@@ -14,7 +14,7 @@ fn program() {
         import std.stack;
         module app;
         #[intrinsic]
-        def main( -- u8, string) 1u8 "x" dep.word end
+        def main( -- u8, [u8; 1]) 1u8 "x" dep.word end
         "#,
     ))
     .add_file(("dep.by", "module dep; def word( -- ) end"))
@@ -43,8 +43,8 @@ fn structs() {
         r#"
         import geometry;
         module app;
-        struct Pair(u8, string);
-        def unpack(Pair -- u8, string) Pair> end
+        struct Pair(u8, [u8; 1]);
+        def unpack(Pair -- u8, [u8; 1]) Pair> end
         def field(Pair -- u8) Pair.0 end
         def qualified( -- geometry.Point) 1u8 2u8 >geometry.Point end
         def path( -- ) geometry.Point.0.tail end
@@ -61,8 +61,8 @@ fn lambdas() {
         "app.by",
         r#"
         module app;
-        def apply(|u8 -- string| -- ) end
-        def main( -- ) |u8 -- string| { "x" } apply end
+        def apply(|u8 -- [u8; 1]| -- ) end
+        def main( -- ) |u8 -- [u8; 1]| { "x" } apply end
         "#,
     ))
     .check()

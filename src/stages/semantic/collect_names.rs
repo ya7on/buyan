@@ -5,10 +5,10 @@ use crate::{
     error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
-        parse::ast::{ASTProgram, ASTStruct},
+        parse::ast::{ASTConst, ASTProgram, ASTStackEffectItem, ASTStruct},
         semantic::{
             context::{HIRContext, SymbolId, SymbolKind},
-            hir::HIRType,
+            hir::{HIRConst, HIRType},
         },
     },
 };
@@ -18,115 +18,173 @@ struct StructDeclaration<'a> {
     item: &'a ASTStruct,
 }
 
-fn register_struct(
-    name: &DottedPath,
-    declarations: &HashMap<DottedPath, StructDeclaration<'_>>,
-    visiting: &mut HashSet<DottedPath>,
-    visited: &mut HashSet<DottedPath>,
-    context: &mut HIRContext,
-) -> Result<SymbolId, DiagnosticMessage> {
-    let declaration = declarations
-        .get(name)
-        .ok_or_else(|| DiagnosticMessage::Unknown {
-            label: format!("Struct declaration not found: {name}"),
-        })?;
+#[derive(Debug, Default)]
+pub struct CollectNamesStage;
 
-    if visited.contains(name) {
-        return context
-            .lookup(name)
-            .ok_or_else(|| DiagnosticMessage::SymbolNotFound {
-                name: name.to_string(),
-                span: declaration.item.name.span,
-            });
+impl CollectNamesStage {
+    fn register_struct_field(
+        field: &Spanned<ASTStackEffectItem>,
+        module_name: &DottedPath,
+        declarations: &HashMap<DottedPath, StructDeclaration<'_>>,
+        visiting: &mut HashSet<DottedPath>,
+        visited: &mut HashSet<DottedPath>,
+        context: &mut HIRContext,
+    ) -> Result<HIRType, DiagnosticMessage> {
+        match &field.value {
+            ASTStackEffectItem::Symbol { name } => {
+                if let Some(dependency) = (name.len() == 1)
+                    .then(|| module_name.extend(name))
+                    .as_ref()
+                    .into_iter()
+                    .chain(std::iter::once(name))
+                    .find(|name| declarations.contains_key(*name))
+                {
+                    if visiting.contains(dependency) {
+                        return Err(DiagnosticMessage::RecursiveStruct {
+                            name: dependency.to_string(),
+                            span: field.span,
+                        });
+                    }
+                    return Ok(HIRType::Struct(Self::register_struct(
+                        dependency,
+                        declarations,
+                        visiting,
+                        visited,
+                        context,
+                    )?));
+                }
+                let Some((id, SymbolKind::Type { .. })) = context.lookup_and_get(name) else {
+                    return Err(DiagnosticMessage::SymbolNotFound {
+                        name: name.to_string(),
+                        span: field.span,
+                    });
+                };
+                Ok(HIRType::BuiltIn(id))
+            }
+            ASTStackEffectItem::Array { element_type, size } => {
+                let ASTConst::Value(size) = size.value else {
+                    return Err(DiagnosticMessage::InvalidSymbol {
+                        name: "const variables are not supported in struct fields".to_string(),
+                        span: size.span,
+                    });
+                };
+                Ok(HIRType::Array {
+                    element_type: Box::new(Self::register_struct_field(
+                        element_type,
+                        module_name,
+                        declarations,
+                        visiting,
+                        visited,
+                        context,
+                    )?),
+                    size: HIRConst::Value(size),
+                })
+            }
+            ASTStackEffectItem::StackVar { .. } | ASTStackEffectItem::Lambda { .. } => {
+                // TODO: generics and lambdas
+                Err(DiagnosticMessage::InvalidSymbol {
+                    name: "stack variables and lambdas are not supported in struct fields"
+                        .to_string(),
+                    span: field.span,
+                })
+            }
+        }
     }
 
-    visiting.insert(name.clone());
+    fn register_struct(
+        name: &DottedPath,
+        declarations: &HashMap<DottedPath, StructDeclaration<'_>>,
+        visiting: &mut HashSet<DottedPath>,
+        visited: &mut HashSet<DottedPath>,
+        context: &mut HIRContext,
+    ) -> Result<SymbolId, DiagnosticMessage> {
+        let declaration = declarations
+            .get(name)
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: format!("Struct declaration not found: {name}"),
+            })?;
 
-    let mut fields = Vec::with_capacity(declaration.item.fields.len());
-    for field in &declaration.item.fields {
-        let ty = if let Some(dependency) = (field.len() == 1)
-            .then(|| declaration.module_name.extend(field))
-            .as_ref()
-            .into_iter()
-            .chain(std::iter::once(&field.value))
-            .find(|name| declarations.contains_key(*name))
-        {
-            if visiting.contains(dependency) {
-                return Err(DiagnosticMessage::RecursiveStruct {
-                    name: dependency.to_string(),
-                    span: field.span,
+        if visited.contains(name) {
+            return context
+                .lookup(name)
+                .ok_or_else(|| DiagnosticMessage::SymbolNotFound {
+                    name: name.to_string(),
+                    span: declaration.item.name.span,
                 });
-            }
-            HIRType::Struct(register_struct(
-                dependency,
+        }
+
+        visiting.insert(name.clone());
+
+        let mut fields = Vec::with_capacity(declaration.item.fields.len());
+        for field in &declaration.item.fields {
+            let ty = Self::register_struct_field(
+                field,
+                &declaration.module_name,
                 declarations,
                 visiting,
                 visited,
                 context,
-            )?)
-        } else {
-            let Some((id, SymbolKind::Type { .. })) = context.lookup_and_get(&field.value) else {
-                return Err(DiagnosticMessage::SymbolNotFound {
-                    name: field.value.to_string(),
-                    span: field.span,
-                });
-            };
-            HIRType::BuiltIn(id)
-        };
-        fields.push(Spanned::new(ty, field.span));
-    }
-
-    let module_id = context.lookup(&declaration.module_name).ok_or_else(|| {
-        DiagnosticMessage::SymbolNotFound {
-            name: declaration.module_name.to_string(),
-            span: declaration.item.name.span,
+            )?;
+            fields.push(Spanned::new(ty, field.span));
         }
-    })?;
-    let struct_id = context.register_struct(module_id, declaration.item, fields)?;
-    visiting.remove(name);
-    visited.insert(name.clone());
-    Ok(struct_id)
-}
 
-fn register_structs(input: &ASTProgram, context: &mut HIRContext, diagnostics: &mut Diagnostics) {
-    let mut declarations = HashMap::new();
-
-    for module in &input.modules {
-        for item in &module.structs {
-            let name = module.name.append(item.name.as_str());
-            if declarations.contains_key(&name) || context.lookup(&name).is_some() {
-                diagnostics.emit_fatal(DiagnosticMessage::SymbolAlreadyExists {
-                    name: name.to_string(),
-                    span: item.name.span,
-                });
-                continue;
+        let module_id = context.lookup(&declaration.module_name).ok_or_else(|| {
+            DiagnosticMessage::SymbolNotFound {
+                name: declaration.module_name.to_string(),
+                span: declaration.item.name.span,
             }
-            declarations.insert(
-                name,
-                StructDeclaration {
-                    module_name: module.name.value.clone(),
-                    item,
-                },
-            );
-        }
+        })?;
+        let struct_id = context.register_struct(module_id, declaration.item, fields)?;
+        visiting.remove(name);
+        visited.insert(name.clone());
+        Ok(struct_id)
     }
 
-    let names = declarations.keys().cloned().collect::<Vec<_>>();
-    let mut visited = HashSet::new();
-    for name in names {
-        if !visited.contains(&name) {
-            let mut visiting = HashSet::new();
-            if let Err(err) =
-                register_struct(&name, &declarations, &mut visiting, &mut visited, context)
-            {
-                diagnostics.emit_fatal(err);
+    fn register_structs(
+        input: &ASTProgram,
+        context: &mut HIRContext,
+        diagnostics: &mut Diagnostics,
+    ) {
+        let mut declarations = HashMap::new();
+
+        for module in &input.modules {
+            for item in &module.structs {
+                let name = module.name.append(item.name.as_str());
+                if declarations.contains_key(&name) || context.lookup(&name).is_some() {
+                    diagnostics.emit_fatal(DiagnosticMessage::SymbolAlreadyExists {
+                        name: name.to_string(),
+                        span: item.name.span,
+                    });
+                    continue;
+                }
+                declarations.insert(
+                    name,
+                    StructDeclaration {
+                        module_name: module.name.value.clone(),
+                        item,
+                    },
+                );
             }
         }
+
+        let names = declarations.keys().cloned().collect::<Vec<_>>();
+        let mut visited = HashSet::new();
+        for name in names {
+            if !visited.contains(&name) {
+                let mut visiting = HashSet::new();
+                if let Err(err) = Self::register_struct(
+                    &name,
+                    &declarations,
+                    &mut visiting,
+                    &mut visited,
+                    context,
+                ) {
+                    diagnostics.emit_fatal(err);
+                }
+            }
+        }
     }
 }
-
-#[derive(Debug, Default)]
-pub struct CollectNamesStage;
 
 impl Stage<CompileContext> for CollectNamesStage {
     type Input = ASTProgram;
@@ -148,7 +206,7 @@ impl Stage<CompileContext> for CollectNamesStage {
             }
         }
 
-        register_structs(&input, &mut context, &mut diagnostics);
+        Self::register_structs(&input, &mut context, &mut diagnostics);
 
         for (index, module) in input.modules.iter().enumerate() {
             for word in &module.words {

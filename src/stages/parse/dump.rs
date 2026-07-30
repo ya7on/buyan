@@ -125,13 +125,14 @@ fn dump_struct(
     buf: &mut String,
     item: &crate::stages::parse::ast::ASTStruct,
 ) -> Result<(), std::fmt::Error> {
-    let fields = item
-        .fields
-        .iter()
-        .map(|field| field.value.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    writeln!(buf, "struct {}({fields});\n", *item.name)
+    write!(buf, "struct {}(", *item.name)?;
+    for (index, field) in item.fields.iter().enumerate() {
+        if index > 0 {
+            write!(buf, ", ")?;
+        }
+        dump_stack_item(buf, &field.value)?;
+    }
+    writeln!(buf, ");\n")
 }
 
 fn dump_module(buf: &mut String, module: &ASTModule) -> Result<(), std::fmt::Error> {

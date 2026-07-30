@@ -16,7 +16,7 @@ pub struct ASTModule {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ASTStruct {
     pub name: Spanned<String>,
-    pub fields: Vec<Spanned<DottedPath>>,
+    pub fields: Vec<Spanned<ASTStackEffectItem>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

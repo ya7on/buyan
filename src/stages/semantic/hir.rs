@@ -76,7 +76,6 @@ pub enum HIRConst {
 pub enum HIRLiteral {
     Bool(bool),
     U8(u8),
-    String(String),
 }
 
 #[derive(Debug, Clone)]

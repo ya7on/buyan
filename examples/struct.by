@@ -2,11 +2,11 @@ import std.io;
 
 module struct_example;
 
-struct Person(string, u8);
+struct Person([u8; 5], u8);
 
 def main( -- )
     "Alice" 67u8 >Person
-    "Bob" 69u8 >Person
+    "Bobby" 69u8 >Person
 
     get_age std.io.println
     get_age std.io.println

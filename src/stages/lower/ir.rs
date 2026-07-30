@@ -39,14 +39,12 @@ pub enum IRTerminator {
 pub enum IRConstant {
     Bool(bool),
     U8(u8),
-    String(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IRType {
     Bool,
     U8,
-    String,
     Struct {
         fields: Vec<Self>,
     },
@@ -79,6 +77,5 @@ pub enum IRInstruction {
     Gt { ty: IRType },
     Lt { ty: IRType },
     Print,
-    Input,
     Flush,
 }

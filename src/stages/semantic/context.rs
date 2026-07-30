@@ -174,19 +174,6 @@ impl HIRContext {
                 label: "failed to register built-in type 'u8'".to_string(),
             })?;
 
-        // string
-        result
-            .register(
-                &DottedPath::parse("string"),
-                SymbolKind::Type {
-                    name: "string".to_string(),
-                    traits: vec![eq_trait_id],
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in type 'string'".to_string(),
-            })?;
-
         Ok(result)
     }
 

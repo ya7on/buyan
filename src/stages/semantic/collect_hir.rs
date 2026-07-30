@@ -35,10 +35,38 @@ impl CollectHIRStage {
     ) -> Result<HIRInstruction, DiagnosticMessage> {
         match &instruction.value {
             ASTInstruction::Literal(literal) => {
+                if let ASTLiteral::String(value) = literal {
+                    if !value.is_ascii() {
+                        return Err(DiagnosticMessage::NonAsciiString {
+                            span: instruction.span,
+                        });
+                    }
+                    let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse("u8")) else {
+                        return Err(DiagnosticMessage::SymbolNotFound {
+                            name: "u8".to_string(),
+                            span: instruction.span,
+                        });
+                    };
+                    stack_analysis.push(HIRType::Array {
+                        element_type: Box::new(HIRType::BuiltIn(symbol_id)),
+                        size: HIRConst::Value(value.len()),
+                    });
+                    return Ok(HIRInstruction::Array {
+                        elements: value
+                            .bytes()
+                            .map(|value| {
+                                Spanned::new(
+                                    HIRInstruction::Literal(HIRLiteral::U8(value)),
+                                    instruction.span,
+                                )
+                            })
+                            .collect(),
+                    });
+                }
                 let (literal, name) = match literal {
                     ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
                     ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
-                    ASTLiteral::String(value) => (HIRLiteral::String(value.to_owned()), "string"),
+                    ASTLiteral::String(_) => unreachable!("string literals are handled above"),
                 };
                 let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
                     return Err(DiagnosticMessage::SymbolNotFound {
@@ -288,8 +316,13 @@ impl CollectHIRStage {
                     let (literal, name) = match literal {
                         ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
                         ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
-                        ASTLiteral::String(value) => {
-                            (HIRLiteral::String(value.to_owned()), "string")
+                        ASTLiteral::String(_) => {
+                            // TODO: think about it
+                            return Err(DiagnosticMessage::InvalidArrayValue {
+                                label: "string literals are not supported in array literals"
+                                    .to_string(),
+                                span: element.span,
+                            });
                         }
                     };
                     let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {

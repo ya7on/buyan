@@ -14,18 +14,16 @@ use crate::{
 pub enum IRValue {
     Bool(bool),
     U8(u8),
-    String(String),
     Lambda(WordId),
     Struct { type_id: TypeId, fields: Vec<Self> },
     Array(Vec<Self>),
 }
 
 impl IRValue {
-    fn from_constant(constant: &IRConstant) -> Self {
+    const fn from_constant(constant: &IRConstant) -> Self {
         match constant {
             IRConstant::Bool(value) => Self::Bool(*value),
             IRConstant::U8(value) => Self::U8(*value),
-            IRConstant::String(value) => Self::String(value.clone()),
         }
     }
 }
@@ -287,9 +285,6 @@ impl IRInterpreter {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs == rhs));
                         }
-                        (IRValue::String(lhs), IRValue::String(rhs)) => {
-                            self.stack.push(IRValue::Bool(lhs == rhs));
-                        }
                         (IRValue::Bool(lhs), IRValue::Bool(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs == rhs));
                         }
@@ -334,8 +329,19 @@ impl IRInterpreter {
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match value {
-                        IRValue::String(value) => {
-                            print!("{value}");
+                        IRValue::Array(values) => {
+                            let bytes = values
+                                .into_iter()
+                                .map(|value| match value {
+                                    IRValue::U8(value) => Ok(value),
+                                    _ => Err(DiagnosticMessage::RuntimeError(
+                                        "print expects an array of u8",
+                                    )),
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            std::io::stdout().write_all(&bytes).map_err(|_| {
+                                DiagnosticMessage::RuntimeError("failed to write output")
+                            })?;
                         }
                         IRValue::U8(value) => {
                             print!("{value}");
@@ -347,13 +353,6 @@ impl IRInterpreter {
                             print!("{value:?}");
                         }
                     }
-                }
-                IRInstruction::Input => {
-                    let mut input = String::new();
-                    std::io::stdin().read_line(&mut input).map_err(|_| {
-                        DiagnosticMessage::RuntimeError("failed to read from stdin")
-                    })?;
-                    self.stack.push(IRValue::String(input));
                 }
                 IRInstruction::Flush => {
                     std::io::stdout()

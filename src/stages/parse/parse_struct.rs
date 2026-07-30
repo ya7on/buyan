@@ -3,8 +3,8 @@ use chumsky::{
 };
 
 use crate::{
-    common::{DottedPath, SourceSpan, Spanned},
-    stages::parse::{ast::ASTStruct, lexer::TokenKind},
+    common::{SourceSpan, Spanned},
+    stages::parse::{ast::ASTStruct, lexer::TokenKind, parse_stack_effect::stack_item_parser},
 };
 
 #[must_use]
@@ -18,19 +18,14 @@ where
         Spanned::new(name, span)
     });
 
-    let field = select! { TokenKind::Ident(name) => name }
-        .separated_by(just(TokenKind::Dot))
-        .at_least(1)
-        .collect::<Vec<_>>()
-        .map_with(|path, extra| {
-            let span: SourceSpan = extra.span();
-            Spanned::new(DottedPath(path), span)
-        });
-
     just(TokenKind::KeywordStruct)
         .ignore_then(name.labelled("Struct name was expected"))
         .then(
-            field
+            stack_item_parser()
+                .map_with(|field, extra| {
+                    let span: SourceSpan = extra.span();
+                    Spanned::new(field, span)
+                })
                 .separated_by(just(TokenKind::Comma))
                 .at_least(1)
                 .collect::<Vec<_>>()

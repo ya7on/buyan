@@ -153,9 +153,6 @@ impl LowerStage {
                         "std.io.print" => {
                             basicblock.push(Spanned::new(IRInstruction::Print, instruction.span));
                         }
-                        "std.io.input" => {
-                            basicblock.push(Spanned::new(IRInstruction::Input, instruction.span));
-                        }
                         "std.io.flush" => {
                             basicblock.push(Spanned::new(IRInstruction::Flush, instruction.span));
                         }
@@ -331,14 +328,6 @@ impl LowerStage {
                             instruction.span,
                         ));
                     }
-                    HIRLiteral::String(value) => {
-                        basicblock.push(Spanned::new(
-                            IRInstruction::PushConstant {
-                                value: IRConstant::String(value.clone()),
-                            },
-                            instruction.span,
-                        ));
-                    }
                 },
                 HIRInstruction::Pack { name, struct_id } => {
                     let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
@@ -447,7 +436,6 @@ impl LowerStage {
                         let value = match literal {
                             HIRLiteral::Bool(value) => IRConstant::Bool(*value),
                             HIRLiteral::U8(value) => IRConstant::U8(*value),
-                            HIRLiteral::String(value) => IRConstant::String(value.clone()),
                         };
                         basicblock.push(Spanned::new(
                             IRInstruction::PushConstant { value },

@@ -17,9 +17,9 @@ fn structs() {
         "app.by",
         r#"
         module app;
-        struct Inner(u8, string);
+        struct Inner(u8, [u8; 1]);
         struct Outer(Inner);
-        def main( -- string)
+        def main( -- [u8; 1])
             1u8 "x" >Inner >Outer
             Outer.0 Inner.1
         end

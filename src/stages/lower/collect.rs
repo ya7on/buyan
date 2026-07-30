@@ -21,7 +21,6 @@ impl CollectSymbolsStage {
                 Some(SymbolKind::Type { name, .. }) => match name.as_str() {
                     "bool" => Some(IRType::Bool),
                     "u8" => Some(IRType::U8),
-                    "string" => Some(IRType::String),
                     _ => None,
                 },
                 _ => None,
@@ -61,11 +60,7 @@ impl Stage<CompileContext> for CollectSymbolsStage {
     ) -> StageResult<Self::Output> {
         let mut diagnostics = Diagnostics::default();
         let mut ir_ctx = IRContext::default();
-        for (name, ty) in [
-            ("bool", IRType::Bool),
-            ("u8", IRType::U8),
-            ("string", IRType::String),
-        ] {
+        for (name, ty) in [("bool", IRType::Bool), ("u8", IRType::U8)] {
             let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
                 diagnostics.emit_fatal(DiagnosticMessage::Unknown {
                     label: format!("built-in type '{name}' not found"),

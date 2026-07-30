@@ -11,7 +11,7 @@ fn values() {
         r#"
         import std.math;
         module app;
-        def main( -- u8, string) 1u8 2u8 std.math.add "x" end
+        def main( -- u8, [u8; 1]) 1u8 2u8 std.math.add "x" end
         "#,
     ))
     .check()
@@ -44,7 +44,7 @@ fn lambdas() {
         import std.math;
         import std.stack;
         module app;
-        def call( -- string) | -- string| { "x" } std.stack.call end
+        def call( -- [u8; 1]) | -- [u8; 1]| { "x" } std.stack.call end
         def main( -- u8)
             0u8 1u8 std.math.gt
             | -- u8| { 2u8 }
@@ -65,10 +65,10 @@ fn structs() {
         r#"
         module app;
         struct Outer(Inner, u8);
-        struct Inner(string);
-        struct Pair(u8, string);
-        def nested(Outer -- string) Outer.0 Inner.0 end
-        def roundtrip( -- u8, string) 1u8 "x" >Pair Pair> end
+        struct Inner([u8; 1]);
+        struct Pair(u8, [u8; 1]);
+        def nested(Outer -- [u8; 1]) Outer.0 Inner.0 end
+        def roundtrip( -- u8, [u8; 1]) 1u8 "x" >Pair Pair> end
         "#,
     ))
     .check()
