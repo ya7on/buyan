@@ -8,19 +8,29 @@ use buyan::{
     lints::{LintPass, empty_word::EmptyWord, unused_import::UnusedImport},
     pipeline::PipelineBuilder,
     stages::{
+        codegen::z80_cpm::Z80CpmCodegenStage,
         interpreter::executor::IRInterpreter,
         lower::{collect::CollectSymbolsStage, monomorphize::MonomorphizeStage, stage::LowerStage},
         parse::stage::ParseStage,
         semantic::{collect_hir::CollectHIRStage, collect_names::CollectNamesStage},
     },
 };
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Target {
+    Interpreter,
+    #[value(name = "z80-unknown-cpm")]
+    Z80UnknownCpm,
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
     path: PathBuf,
+    #[arg(long, value_enum, default_value_t = Target::Interpreter)]
+    target: Target,
 }
 
 fn print_errors(context: &CompileContext, diagnostics: &[Diagnostic]) {
@@ -113,7 +123,10 @@ fn main() {
     print_errors(&pipeline.context, &pipeline.diagnostics.items);
 
     let diagnostic_count = pipeline.diagnostics.items.len();
-    let pipeline = pipeline.stage(IRInterpreter::default());
+    let pipeline = match args.target {
+        Target::Interpreter => pipeline.stage(IRInterpreter::default()),
+        Target::Z80UnknownCpm => pipeline.stage(Z80CpmCodegenStage),
+    };
 
     print_errors(
         &pipeline.context,

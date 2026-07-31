@@ -64,6 +64,8 @@ impl LowerStage {
 
     fn lower_ir_word(
         ir_ctx: &IRContext,
+        word_id: WordId,
+        name: String,
         body: &[Spanned<HIRInstruction>],
         entrypoint: bool,
         span: Span,
@@ -396,6 +398,8 @@ impl LowerStage {
                     // Reserve the slot before lowering nested lambdas so this id stays stable.
                     lambda_words.push(Spanned::new(
                         IRWord {
+                            word_id,
+                            name: format!("lambda_{}", word_id.id()),
                             entrypoint: false,
                             blocks: Vec::new(),
                         },
@@ -404,6 +408,8 @@ impl LowerStage {
 
                     let lambda_word = match Self::lower_ir_word(
                         ir_ctx,
+                        word_id,
+                        format!("lambda_{}", word_id.id()),
                         body,
                         false,
                         instruction.span,
@@ -458,7 +464,12 @@ impl LowerStage {
 
         blocks.push(basicblock.build(Spanned::new(IRTerminator::End, span)));
 
-        Ok(IRWord { entrypoint, blocks })
+        Ok(IRWord {
+            word_id,
+            name,
+            entrypoint,
+            blocks,
+        })
     }
 }
 
@@ -483,7 +494,7 @@ impl Stage<CompileContext> for LowerStage {
             .map(|word| (word.id, word))
             .collect::<std::collections::HashMap<_, _>>();
 
-        for instance in &ir_ctx.words {
+        for (index, instance) in ir_ctx.words.iter().enumerate() {
             let Some(word) = words.get(&instance.source_word) else {
                 diagnostics.emit_fatal(DiagnosticMessage::Unknown {
                     label: format!("source word '{}' not found", instance.source_word.0),
@@ -499,6 +510,8 @@ impl Stage<CompileContext> for LowerStage {
                 .collect::<Vec<_>>();
             match Self::lower_ir_word(
                 &ir_ctx,
+                WordId(index),
+                instance.name.clone(),
                 &word.body,
                 word.entrypoint,
                 word.span,

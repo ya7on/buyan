@@ -13,6 +13,8 @@ pub struct IRProgram {
 
 #[derive(Debug, Clone)]
 pub struct IRWord {
+    pub word_id: WordId,
+    pub name: String,
     pub entrypoint: bool,
     pub blocks: Vec<IRBasicBlock>,
 }
