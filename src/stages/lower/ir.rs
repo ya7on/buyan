@@ -78,6 +78,5 @@ pub enum IRInstruction {
     Eq { ty: IRType },
     Gt { ty: IRType },
     Lt { ty: IRType },
-    Print,
-    Flush,
+    Print { ty: IRType },
 }

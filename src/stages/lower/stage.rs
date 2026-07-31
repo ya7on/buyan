@@ -153,10 +153,17 @@ impl LowerStage {
                             basicblock = BasicBlockBuilder::default();
                         }
                         "std.io.print" => {
-                            basicblock.push(Spanned::new(IRInstruction::Print, instruction.span));
-                        }
-                        "std.io.flush" => {
-                            basicblock.push(Spanned::new(IRInstruction::Flush, instruction.span));
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Print { ty: ty.clone() },
+                                instruction.span,
+                            ));
                         }
                         "std.stack.call" => {
                             basicblock

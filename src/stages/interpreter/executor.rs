@@ -323,7 +323,7 @@ impl IRInterpreter {
                         _ => panic!("lt expects u8 operands"),
                     }
                 }
-                IRInstruction::Print => {
+                IRInstruction::Print { .. } => {
                     let value = self
                         .stack
                         .pop()
@@ -353,11 +353,6 @@ impl IRInterpreter {
                             print!("{value:?}");
                         }
                     }
-                }
-                IRInstruction::Flush => {
-                    std::io::stdout()
-                        .flush()
-                        .map_err(|_| DiagnosticMessage::RuntimeError("failed to flush stdout"))?;
                 }
             }
         }
