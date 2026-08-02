@@ -11,3 +11,12 @@ def if<...S, ...R>(
 )
 end
 
+#[builtin]
+def while<...S>(
+    ...S,
+    |...S -- ...S, bool|, // condition
+    |...S -- ...S| // body
+    --
+    ...S
+)
+end

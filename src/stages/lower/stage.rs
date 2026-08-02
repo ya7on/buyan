@@ -109,12 +109,65 @@ impl LowerStage {
                     match name.as_str() {
                         // Builtin call
                         "std.cfg.if" => {
+                            let Some(else_lambda) = basicblock.instructions.pop() else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.if' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let IRInstruction::PushLambda {
+                                word_id: else_word_id,
+                            } = else_lambda.value
+                            else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.if' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let Some(then_lambda) = basicblock.instructions.pop() else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.if' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let IRInstruction::PushLambda {
+                                word_id: then_word_id,
+                            } = then_lambda.value
+                            else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.if' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
                             let current_block_id = blocks.len();
-                            let then_branch = BasicBlockId(current_block_id + 1);
-                            let else_branch = BasicBlockId(current_block_id + 2);
-                            let join_branch = BasicBlockId(current_block_id + 3);
+                            let decision_branch = BasicBlockId(current_block_id + 1);
+                            let then_branch = BasicBlockId(current_block_id + 2);
+                            let else_branch = BasicBlockId(current_block_id + 3);
+                            let join_branch = BasicBlockId(current_block_id + 4);
 
                             blocks.push(basicblock.build(Spanned::new(
+                                IRTerminator::Branch {
+                                    branch: decision_branch,
+                                },
+                                instruction.span,
+                            )));
+                            blocks.push(BasicBlockBuilder::default().build(Spanned::new(
                                 IRTerminator::BranchIfZero {
                                     then_branch,
                                     else_branch,
@@ -124,7 +177,9 @@ impl LowerStage {
                             blocks.push(
                                 BasicBlockBuilder {
                                     instructions: vec![Spanned::new(
-                                        IRInstruction::CallIndirect,
+                                        IRInstruction::CallDirect {
+                                            word_id: then_word_id,
+                                        },
                                         instruction.span,
                                     )],
                                 }
@@ -138,7 +193,9 @@ impl LowerStage {
                             blocks.push(
                                 BasicBlockBuilder {
                                     instructions: vec![Spanned::new(
-                                        IRInstruction::CallIndirect,
+                                        IRInstruction::CallDirect {
+                                            word_id: else_word_id,
+                                        },
                                         instruction.span,
                                     )],
                                 }
@@ -149,6 +206,113 @@ impl LowerStage {
                                     instruction.span,
                                 )),
                             );
+
+                            basicblock = BasicBlockBuilder::default();
+                        }
+                        "std.cfg.while" => {
+                            let Some(body_lambda) = basicblock.instructions.pop() else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.while' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let IRInstruction::PushLambda {
+                                word_id: body_word_id,
+                            } = body_lambda.value
+                            else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.while' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let Some(condition_lambda) = basicblock.instructions.pop() else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.while' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let IRInstruction::PushLambda {
+                                word_id: condition_word_id,
+                            } = condition_lambda.value
+                            else {
+                                errors.push(DiagnosticMessage::InvalidStack {
+                                    label: "'std.cfg.while' expects two immediately preceding lambda literals".to_string(),
+                                    span: instruction.span,
+                                    additional_spans: Vec::new(),
+                                    expected_stack: Vec::new(),
+                                    actual_stack: Vec::new(),
+                                });
+                                continue;
+                            };
+                            let current_block_id = blocks.len();
+                            let condition_branch = BasicBlockId(current_block_id + 1);
+                            let test_branch = BasicBlockId(current_block_id + 2);
+                            let body_branch = BasicBlockId(current_block_id + 3);
+                            let exit_branch = BasicBlockId(current_block_id + 4);
+
+                            blocks.push(basicblock.build(Spanned::new(
+                                IRTerminator::Branch {
+                                    branch: condition_branch,
+                                },
+                                instruction.span,
+                            )));
+                            blocks.push(
+                                BasicBlockBuilder {
+                                    instructions: vec![Spanned::new(
+                                        IRInstruction::CallDirect {
+                                            word_id: condition_word_id,
+                                        },
+                                        instruction.span,
+                                    )],
+                                }
+                                .build(Spanned::new(
+                                    IRTerminator::Branch {
+                                        branch: test_branch,
+                                    },
+                                    instruction.span,
+                                )),
+                            );
+                            blocks.push(BasicBlockBuilder::default().build(Spanned::new(
+                                IRTerminator::BranchIfZero {
+                                    then_branch: body_branch,
+                                    else_branch: exit_branch,
+                                },
+                                instruction.span,
+                            )));
+                            blocks.push(
+                                BasicBlockBuilder {
+                                    instructions: vec![Spanned::new(
+                                        IRInstruction::CallDirect {
+                                            word_id: body_word_id,
+                                        },
+                                        instruction.span,
+                                    )],
+                                }
+                                .build(Spanned::new(
+                                    IRTerminator::Branch {
+                                        branch: condition_branch,
+                                    },
+                                    instruction.span,
+                                )),
+                            );
+                            blocks.push(BasicBlockBuilder::default().build(Spanned::new(
+                                IRTerminator::Branch {
+                                    branch: BasicBlockId(current_block_id + 5),
+                                },
+                                instruction.span,
+                            )));
 
                             basicblock = BasicBlockBuilder::default();
                         }

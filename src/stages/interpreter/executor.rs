@@ -98,7 +98,11 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match lambda {
                         IRValue::Lambda(word_id) => self.execute_word(program, word_id)?,
-                        _ => panic!("indirect call expects lambda"),
+                        _ => {
+                            return Err(DiagnosticMessage::RuntimeError(
+                                "indirect call expects lambda",
+                            ));
+                        }
                     }
                 }
                 IRInstruction::Pack {
@@ -364,28 +368,20 @@ impl IRInterpreter {
                 then_branch,
                 else_branch,
             } => {
-                let else_lambda = self
-                    .stack
-                    .pop()
-                    .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                let then_lambda = self
-                    .stack
-                    .pop()
-                    .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                 let condition = self
                     .stack
                     .pop()
                     .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
 
                 let IRValue::Bool(condition) = condition else {
-                    panic!("branch expects bool condition");
+                    return Err(DiagnosticMessage::RuntimeError(
+                        "branch expects bool condition",
+                    ));
                 };
 
                 if condition {
-                    self.stack.push(then_lambda);
                     Some(*then_branch)
                 } else {
-                    self.stack.push(else_lambda);
                     Some(*else_branch)
                 }
             }
