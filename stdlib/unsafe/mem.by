@@ -1,0 +1,7 @@
+module std.unsafe.mem;
+
+#[builtin]
+def load(ptr -- u8) end
+
+#[builtin]
+def store(ptr, u8 -- ) end

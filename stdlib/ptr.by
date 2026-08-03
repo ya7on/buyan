@@ -1,0 +1,4 @@
+module std.ptr;
+
+#[builtin]
+def offset(ptr, u16 -- ptr) end

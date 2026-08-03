@@ -11,7 +11,7 @@ use chumsky::{
 use crate::{
     common::{DottedPath, SourceSpan, Spanned},
     stages::parse::{
-        ast::{ASTConst, ASTStackEffect, ASTStackEffectItem},
+        ast::{ASTStackEffect, ASTStackEffectItem},
         lexer::TokenKind,
     },
 };
@@ -65,23 +65,7 @@ where
                     ),
                 }
             });
-        let const_value =
-            select! { TokenKind::LiteralNumber(number) => number }.map(ASTConst::Value);
-        let const_var = select! { TokenKind::Ident(name) => name }.map(ASTConst::Var);
-        let array = just(TokenKind::LeftSquareBracket)
-            .ignore_then(ty)
-            .then_ignore(just(TokenKind::Semicolon))
-            .then(choice((const_value, const_var)))
-            .then_ignore(just(TokenKind::RightSquareBracket))
-            .map_with(|(element_type, size), extra| {
-                let span: SourceSpan = extra.span();
-                ASTStackEffectItem::Array {
-                    element_type: Box::new(Spanned::new(element_type, span)),
-                    size: Spanned::new(size, span),
-                }
-            });
-
-        choice((stack_var, typed, lambda, array))
+        choice((stack_var, typed, lambda))
     })
 }
 

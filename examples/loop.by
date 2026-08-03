@@ -2,11 +2,11 @@ import std.cfg;
 import std.io;
 import std.math;
 import std.stack;
+import std.str;
 
 module example_loop;
 
-def main( -- u8 )
-    0u8
+def main( -- )
     0u8
     | u8 -- u8, bool | { std.stack.dup 5u8 std.math.lt }
     | u8 -- u8 | { 1u8 std.math.add "iter" std.io.println }

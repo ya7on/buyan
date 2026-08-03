@@ -9,8 +9,8 @@ use crate::{
         semantic::{
             context::{HIRContext, SymbolKind},
             hir::{
-                HIRConst, HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRStruct, HIRType,
-                HIRWord, HIRWordAttribute, HIRWordSignature,
+                HIRInstruction, HIRLiteral, HIRModule, HIRProgram, HIRStruct, HIRType, HIRWord,
+                HIRWordAttribute, HIRWordSignature,
             },
             stack_analysis::StackAnalysis,
         },
@@ -41,31 +41,38 @@ impl CollectHIRStage {
                             span: instruction.span,
                         });
                     }
-                    let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse("u8")) else {
+                    // TODO: FIXME
+                    if !module
+                        .imports
+                        .iter()
+                        .any(|import| import.value == DottedPath::parse("std.str"))
+                    {
                         return Err(DiagnosticMessage::SymbolNotFound {
-                            name: "u8".to_string(),
+                            name: "std.str.Str".to_string(),
+                            span: instruction.span,
+                        });
+                    }
+                    if value.len() > usize::from(u8::MAX) {
+                        return Err(DiagnosticMessage::DataIsTooBig {
+                            span: instruction.span,
+                        });
+                    }
+                    let Some(struct_id) = hir_ctx.lookup(&DottedPath::parse("std.str.Str")) else {
+                        return Err(DiagnosticMessage::SymbolNotFound {
+                            name: "std.str.Str".to_string(),
                             span: instruction.span,
                         });
                     };
-                    stack_analysis.push(HIRType::Array {
-                        element_type: Box::new(HIRType::BuiltIn(symbol_id)),
-                        size: HIRConst::Value(value.len()),
-                    });
-                    return Ok(HIRInstruction::Array {
-                        elements: value
-                            .bytes()
-                            .map(|value| {
-                                Spanned::new(
-                                    HIRInstruction::Literal(HIRLiteral::U8(value)),
-                                    instruction.span,
-                                )
-                            })
-                            .collect(),
-                    });
+                    stack_analysis.push(HIRType::Struct(struct_id));
+                    return Ok(HIRInstruction::Literal(HIRLiteral::String {
+                        value: value.clone(),
+                        struct_id,
+                    }));
                 }
                 let (literal, name) = match literal {
                     ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
                     ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
+                    ASTLiteral::U16(value) => (HIRLiteral::U16(*value), "u16"),
                     ASTLiteral::String(_) => unreachable!("string literals are handled above"),
                 };
                 let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
@@ -301,66 +308,6 @@ impl CollectHIRStage {
                     stack_in: result_stack_in,
                     stack_out: result_stack_out,
                     body: result_body,
-                })
-            }
-            ASTInstruction::Array { elements } => {
-                let mut result_body = Vec::new();
-                let mut element_type = None;
-                for element in elements {
-                    let ASTInstruction::Literal(literal) = &element.value else {
-                        return Err(DiagnosticMessage::InvalidArrayValue {
-                            label: "array elements must be literals".to_string(),
-                            span: element.span,
-                        });
-                    };
-                    let (literal, name) = match literal {
-                        ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
-                        ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
-                        ASTLiteral::String(_) => {
-                            // TODO: think about it
-                            return Err(DiagnosticMessage::InvalidArrayValue {
-                                label: "string literals are not supported in array literals"
-                                    .to_string(),
-                                span: element.span,
-                            });
-                        }
-                    };
-                    let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
-                        return Err(DiagnosticMessage::SymbolNotFound {
-                            name: name.to_string(),
-                            span: element.span,
-                        });
-                    };
-                    let actual_type = HIRType::BuiltIn(symbol_id);
-                    if let Some(expected_type) = &element_type {
-                        if expected_type != &actual_type {
-                            return Err(DiagnosticMessage::InvalidArrayValue {
-                                label: format!(
-                                    "array element type mismatch; expected {}, found {}",
-                                    hir_ctx.format_type(expected_type),
-                                    hir_ctx.format_type(&actual_type)
-                                ),
-                                span: element.span,
-                            });
-                        }
-                    } else {
-                        element_type = Some(actual_type);
-                    }
-                    result_body.push(Spanned::new(HIRInstruction::Literal(literal), element.span));
-                }
-
-                let Some(element_type) = element_type else {
-                    return Err(DiagnosticMessage::CannotInferType {
-                        label: "cannot infer empty array element type".to_string(),
-                        span: instruction.span,
-                    });
-                };
-                stack_analysis.push(HIRType::Array {
-                    element_type: Box::new(element_type),
-                    size: HIRConst::Value(elements.len()),
-                });
-                Ok(HIRInstruction::Array {
-                    elements: result_body,
                 })
             }
         }

@@ -9,10 +9,11 @@
 
 ```buyan
 import std.io;
+import std.str;
 
 module app;
 
-struct Person(string, u8);
+struct Person(std.str.Str, u8);
 
 def main( -- )
     "Semyon" 67u8 >Person
@@ -29,8 +30,8 @@ Buyan uses a last-in, first-out stack. Values are pushed onto the top; words con
 
 Buyan has the following built-in data types:
 
-- **Integers** are represented by `u8`. In `1u8`, `1` is the value and `u8` is its type.
-- **Strings** are text values written in quotes, such as `"Hello"`.
+- **Integers** are represented by `u8` and `u16`. In `1u8`, `1` is the value and `u8` is its type.
+- **Strings** are text values written in quotes, such as `"Hello".
 - **Booleans** are `bool` values representing `true` or `false`.
 
 ## Typing
@@ -46,7 +47,7 @@ Stack effects are described with concrete types, type variables, or stack variab
 Lambdas are anonymous words stored as values on the stack. Their stack effect is written between `|` characters, followed by their body in braces.
 
 ```buyan
-| -- string| { "Hello" }
+| -- std.str.Str| { "Hello" }
 ```
 
 ## Words
@@ -64,5 +65,5 @@ end
 Structs are containers for multiple values stored under one name. Values are packed with `>StructName`, unpacked with `StructName>`, and a field is selected from a struct on the stack with `StructName.0`.
 
 ```buyan
-struct Person(string, u8);
+struct Person(std.str.Str, u8);
 ```

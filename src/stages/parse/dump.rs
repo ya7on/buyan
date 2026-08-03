@@ -18,9 +18,6 @@ fn dump_stack_item(buf: &mut String, item: &ASTStackEffectItem) -> Result<(), st
             dump_stack_effect(&mut s, stack_effect)?;
             write!(buf, "|{s}|")?;
         }
-        ASTStackEffectItem::Array { element_type, size } => {
-            write!(buf, "[{element_type:?}; {size:?}]")?;
-        }
     }
     Ok(())
 }
@@ -52,6 +49,7 @@ fn dump_instruction(buf: &mut String, instruction: &ASTInstruction) -> Result<()
         ASTInstruction::Literal(ASTLiteral::Bool(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::String(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::U8(value)) => write!(buf, "{value}")?,
+        ASTInstruction::Literal(ASTLiteral::U16(value)) => write!(buf, "{value}")?,
         ASTInstruction::Lambda { stack_effect, body } => {
             let mut s = String::new();
             dump_stack_effect(&mut s, stack_effect)?;
@@ -62,15 +60,6 @@ fn dump_instruction(buf: &mut String, instruction: &ASTInstruction) -> Result<()
                 b.push(s);
             }
             write!(buf, "|{}| {{ {} }}", s, b.join(" "))?;
-        }
-        ASTInstruction::Array { elements } => {
-            let mut b = Vec::new();
-            for element in elements {
-                let mut s = String::new();
-                dump_instruction(&mut s, element)?;
-                b.push(s);
-            }
-            write!(buf, "[{}]", b.join(" "))?;
         }
     }
     Ok(())

@@ -6,7 +6,7 @@ use crate::{
         lower::{context::IRContext, ir::IRType},
         semantic::{
             context::{HIRContext, SymbolKind},
-            hir::{HIRConst, HIRProgram, HIRType},
+            hir::{HIRProgram, HIRType},
         },
     },
 };
@@ -21,6 +21,7 @@ impl CollectSymbolsStage {
                 Some(SymbolKind::Type { name, .. }) => match name.as_str() {
                     "bool" => Some(IRType::Bool),
                     "u8" => Some(IRType::U8),
+                    "u16" | "ptr" => Some(IRType::U16),
                     _ => None,
                 },
                 _ => None,
@@ -34,15 +35,6 @@ impl CollectSymbolsStage {
                 }),
                 _ => None,
             },
-            HIRType::Array { element_type, size } => {
-                let HIRConst::Value(size) = size else {
-                    return None;
-                };
-                Some(IRType::Array {
-                    element_type: Box::new(Self::collect_struct_type(hir_ctx, element_type)?),
-                    size: *size,
-                })
-            }
             HIRType::Lambda { .. } => Some(IRType::Lambda),
             HIRType::TypeVar(_) | HIRType::StackVar(_) => None,
         }
@@ -60,7 +52,12 @@ impl Stage<CompileContext> for CollectSymbolsStage {
     ) -> StageResult<Self::Output> {
         let mut diagnostics = Diagnostics::default();
         let mut ir_ctx = IRContext::default();
-        for (name, ty) in [("bool", IRType::Bool), ("u8", IRType::U8)] {
+        for (name, ty) in [
+            ("bool", IRType::Bool),
+            ("u8", IRType::U8),
+            ("u16", IRType::U16),
+            ("ptr", IRType::U16),
+        ] {
             let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
                 diagnostics.emit_fatal(DiagnosticMessage::Unknown {
                     label: format!("built-in type '{name}' not found"),

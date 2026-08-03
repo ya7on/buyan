@@ -33,9 +33,9 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
             });
             return StageResult::new(None, diagnostics);
         };
+        let mut visited = HashSet::from([entrypoint.absolute.clone()]);
         let mut queue = vec![entrypoint];
         let mut modules = Vec::new();
-        let mut visited = HashSet::new();
 
         while let Some(module) = queue.pop() {
             let source_id = context.add_source(module.absolute.clone(), module.content.clone());
@@ -70,39 +70,74 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                 if import.first() == Some("std") {
                     match import.to_string().as_str() {
                         "std.stack" => {
-                            queue.push(Module {
+                            let module = Module {
                                 absolute: PathBuf::from("stdlib/stack.by"),
                                 content: include_str!("../../../stdlib/stack.by").to_string(),
                                 name: "std.stack".to_string(),
-                            });
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
                         }
                         "std.math" => {
-                            queue.push(Module {
+                            let module = Module {
                                 absolute: PathBuf::from("stdlib/math.by"),
                                 content: include_str!("../../../stdlib/math.by").to_string(),
                                 name: "std.math".to_string(),
-                            });
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
                         }
                         "std.cfg" => {
-                            queue.push(Module {
+                            let module = Module {
                                 absolute: PathBuf::from("stdlib/cfg.by"),
                                 content: include_str!("../../../stdlib/cfg.by").to_string(),
                                 name: "std.cfg".to_string(),
-                            });
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
                         }
                         "std.io" => {
-                            queue.push(Module {
+                            let module = Module {
                                 absolute: PathBuf::from("stdlib/io.by"),
                                 content: include_str!("../../../stdlib/io.by").to_string(),
                                 name: "std.io".to_string(),
-                            });
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
                         }
-                        "std.array" => {
-                            queue.push(Module {
-                                absolute: PathBuf::from("stdlib/array.by"),
-                                content: include_str!("../../../stdlib/array.by").to_string(),
-                                name: "std.array".to_string(),
-                            });
+                        "std.str" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/str.by"),
+                                content: include_str!("../../../stdlib/str.by").to_string(),
+                                name: "std.str".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
+                        "std.ptr" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/ptr.by"),
+                                content: include_str!("../../../stdlib/ptr.by").to_string(),
+                                name: "std.ptr".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
+                        "std.unsafe.mem" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/unsafe/mem.by"),
+                                content: include_str!("../../../stdlib/unsafe/mem.by").to_string(),
+                                name: "std.unsafe.mem".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
                         }
                         _ => {
                             diagnostics.emit_fatal(DiagnosticMessage::ImportError {
@@ -118,9 +153,6 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                     "{}.by",
                     import.value.to_string().replace('.', "/")
                 ));
-                if !visited.insert(path.clone()) {
-                    continue;
-                }
                 let Some(module) = self.file_loader.read(&path) else {
                     diagnostics.emit_fatal(DiagnosticMessage::ImportError {
                         path: path.display().to_string(),
@@ -128,7 +160,9 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                     });
                     continue;
                 };
-                queue.push(module);
+                if visited.insert(module.absolute.clone()) {
+                    queue.push(module);
+                }
             }
 
             modules.push(parse_result.ast);

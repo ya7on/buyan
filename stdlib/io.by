@@ -1,10 +1,12 @@
 
+import std.str;
+
 module std.io;
 
 #[builtin]
-def print<T>(T -- ) end
+def print(std.str.Str -- ) end
 
-def println<T>(T -- )
+def println(std.str.Str -- )
     print
     "\n"
     print

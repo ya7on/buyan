@@ -5,10 +5,10 @@ use crate::{
     error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
-        parse::ast::{ASTConst, ASTProgram, ASTStackEffectItem, ASTStruct},
+        parse::ast::{ASTProgram, ASTStackEffectItem, ASTStruct},
         semantic::{
             context::{HIRContext, SymbolId, SymbolKind},
-            hir::{HIRConst, HIRType},
+            hir::HIRType,
         },
     },
 };
@@ -60,25 +60,6 @@ impl CollectNamesStage {
                     });
                 };
                 Ok(HIRType::BuiltIn(id))
-            }
-            ASTStackEffectItem::Array { element_type, size } => {
-                let ASTConst::Value(size) = size.value else {
-                    return Err(DiagnosticMessage::InvalidSymbol {
-                        name: "const variables are not supported in struct fields".to_string(),
-                        span: size.span,
-                    });
-                };
-                Ok(HIRType::Array {
-                    element_type: Box::new(Self::register_struct_field(
-                        element_type,
-                        module_name,
-                        declarations,
-                        visiting,
-                        visited,
-                        context,
-                    )?),
-                    size: HIRConst::Value(size),
-                })
             }
             ASTStackEffectItem::StackVar { .. } | ASTStackEffectItem::Lambda { .. } => {
                 // TODO: generics and lambdas

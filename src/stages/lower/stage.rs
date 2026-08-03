@@ -13,7 +13,7 @@ use crate::{
         },
         semantic::{
             context::SymbolId,
-            hir::{HIRConst, HIRInstruction, HIRLiteral, HIRProgram, HIRType},
+            hir::{HIRInstruction, HIRLiteral, HIRProgram, HIRType},
         },
     },
 };
@@ -50,15 +50,6 @@ impl LowerStage {
                 .cloned(),
             HIRType::StackVar(_) | HIRType::TypeVar(_) => None,
             HIRType::Lambda { .. } => Some(IRType::Lambda),
-            HIRType::Array { element_type, size } => {
-                let HIRConst::Value(size) = size else {
-                    return None;
-                };
-                Some(IRType::Array {
-                    element_type: Box::new(Self::lower_type(ir_ctx, element_type)?),
-                    size: *size,
-                })
-            }
         }
     }
 
@@ -72,11 +63,12 @@ impl LowerStage {
         substitutions: &[(SymbolId, HIRType)],
         lambda_words: &mut Vec<Spanned<IRWord>>,
         base_word_count: usize,
+        static_data: &mut Vec<u8>,
     ) -> Result<IRWord, Vec<DiagnosticMessage>> {
         let mut errors = Vec::new();
         let mut blocks = Vec::new();
         let mut basicblock = BasicBlockBuilder::default();
-        'instructions: for instruction in body {
+        for instruction in body {
             match &instruction.value {
                 HIRInstruction::Call {
                     name,
@@ -317,17 +309,7 @@ impl LowerStage {
                             basicblock = BasicBlockBuilder::default();
                         }
                         "std.io.print" => {
-                            let Some(ty) = type_args.first() else {
-                                errors.push(DiagnosticMessage::CannotInferType {
-                                    label: format!("missing type argument for '{name}'"),
-                                    span: instruction.span,
-                                });
-                                continue;
-                            };
-                            basicblock.push(Spanned::new(
-                                IRInstruction::Print { ty: ty.clone() },
-                                instruction.span,
-                            ));
+                            basicblock.push(Spanned::new(IRInstruction::Print, instruction.span));
                         }
                         "std.stack.call" => {
                             basicblock
@@ -467,9 +449,17 @@ impl LowerStage {
                                 instruction.span,
                             ));
                         }
-                        "std.array.index" => {
-                            basicblock
-                                .push(Spanned::new(IRInstruction::ArrayIndex, instruction.span));
+                        "std.ptr.offset" => {
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Add { ty: IRType::U16 },
+                                instruction.span,
+                            ));
+                        }
+                        "std.unsafe.mem.load" => {
+                            basicblock.push(Spanned::new(IRInstruction::Load, instruction.span));
+                        }
+                        "std.unsafe.mem.store" => {
+                            basicblock.push(Spanned::new(IRInstruction::Store, instruction.span));
                         }
                         // Real word call
                         _ => match ir_ctx.get_word_id(*symbol_id, &concrete_type_args) {
@@ -501,6 +491,51 @@ impl LowerStage {
                             instruction.span,
                         ));
                     }
+                    HIRLiteral::U16(value) => {
+                        basicblock.push(Spanned::new(
+                            IRInstruction::PushConstant {
+                                value: IRConstant::U16(*value),
+                            },
+                            instruction.span,
+                        ));
+                    }
+                    HIRLiteral::String { value, struct_id } => {
+                        let Some(address) = u16::try_from(static_data.len()).ok() else {
+                            errors.push(DiagnosticMessage::DataIsTooBig {
+                                span: instruction.span,
+                            });
+                            continue;
+                        };
+                        let bytes = value.as_bytes();
+                        if bytes.len() > usize::from(u8::MAX)
+                            || static_data.len() + bytes.len() + 1 > usize::from(u16::MAX) + 1
+                        {
+                            errors.push(DiagnosticMessage::DataIsTooBig {
+                                span: instruction.span,
+                            });
+                            continue;
+                        }
+                        static_data.push(bytes.len() as u8);
+                        static_data.extend_from_slice(bytes);
+                        let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied()
+                        else {
+                            errors.push(DiagnosticMessage::SymbolNotFound {
+                                name: "std.str.Str".to_string(),
+                                span: instruction.span,
+                            });
+                            continue;
+                        };
+                        basicblock.push(Spanned::new(
+                            IRInstruction::PushConstant {
+                                value: IRConstant::U16(address),
+                            },
+                            instruction.span,
+                        ));
+                        basicblock.push(Spanned::new(
+                            IRInstruction::Pack { type_id },
+                            instruction.span,
+                        ));
+                    }
                 },
                 HIRInstruction::Pack { name, struct_id } => {
                     let Some(type_id) = ir_ctx.symbol_id_to_type_id.get(struct_id).copied() else {
@@ -510,18 +545,8 @@ impl LowerStage {
                         });
                         continue;
                     };
-                    let Some(IRType::Struct { fields }) = ir_ctx.get_type(type_id) else {
-                        errors.push(DiagnosticMessage::SymbolNotFound {
-                            name: name.clone(),
-                            span: instruction.span,
-                        });
-                        continue;
-                    };
                     basicblock.push(Spanned::new(
-                        IRInstruction::Pack {
-                            type_id,
-                            field_count: fields.len(),
-                        },
+                        IRInstruction::Pack { type_id },
                         instruction.span,
                     ));
                 }
@@ -587,6 +612,7 @@ impl LowerStage {
                         substitutions,
                         lambda_words,
                         base_word_count,
+                        static_data,
                     ) {
                         Ok(word) => word,
                         Err(err) => {
@@ -598,31 +624,6 @@ impl LowerStage {
                     lambda_words[lambda_slot] = Spanned::new(lambda_word, instruction.span);
                     basicblock.push(Spanned::new(
                         IRInstruction::PushLambda { word_id },
-                        instruction.span,
-                    ));
-                }
-                HIRInstruction::Array { elements } => {
-                    for element in elements {
-                        let HIRInstruction::Literal(literal) = &element.value else {
-                            errors.push(DiagnosticMessage::InvalidArrayValue {
-                                label: "array elements must be literals".to_string(),
-                                span: element.span,
-                            });
-                            continue 'instructions;
-                        };
-                        let value = match literal {
-                            HIRLiteral::Bool(value) => IRConstant::Bool(*value),
-                            HIRLiteral::U8(value) => IRConstant::U8(*value),
-                        };
-                        basicblock.push(Spanned::new(
-                            IRInstruction::PushConstant { value },
-                            element.span,
-                        ));
-                    }
-                    basicblock.push(Spanned::new(
-                        IRInstruction::PackArray {
-                            element_count: elements.len(),
-                        },
                         instruction.span,
                     ));
                 }
@@ -654,7 +655,11 @@ impl Stage<CompileContext> for LowerStage {
         _: &mut CompileContext,
     ) -> StageResult<Self::Output> {
         let mut diagnostics = Diagnostics::default();
-        let mut result = IRProgram { words: Vec::new() };
+        let mut result = IRProgram {
+            words: Vec::new(),
+            types: ir_ctx.types.clone(),
+            static_data: Vec::new(),
+        };
         let mut lambda_words = Vec::new();
         let base_word_count = ir_ctx.words.len();
 
@@ -689,6 +694,7 @@ impl Stage<CompileContext> for LowerStage {
                 &substitutions,
                 &mut lambda_words,
                 base_word_count,
+                &mut result.static_data,
             ) {
                 Ok(ir_word) => result.words.push(Spanned::new(ir_word, word.span)),
                 Err(err) => {

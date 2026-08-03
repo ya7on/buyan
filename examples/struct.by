@@ -1,17 +1,18 @@
 import std.io;
+import std.str;
 
 module struct_example;
 
-struct Person([u8; 5], u8);
+struct Person(std.str.Str, u8);
 
 def main( -- )
     "Alice" 67u8 >Person
     "Bobby" 69u8 >Person
 
-    get_age std.io.println
-    get_age std.io.println
+    get_name std.io.println
+    get_name std.io.println
 end
 
-def get_age(Person -- u8)
-    Person.1
+def get_name(Person -- std.str.Str)
+    Person.0
 end

@@ -75,6 +75,9 @@ pub enum TokenKind {
     #[regex(r"[a-zA-Z_]+[a-zA-Z_0-9]*", |lex| lex.slice().to_string())]
     Ident(String),
 
+    #[regex("[0-9]+u16", |lex| lex.slice()[..lex.slice().len()-3].parse::<u16>().ok())]
+    #[regex(r"0[xX][0-9a-fA-F]+u16", |lex| u16::from_str_radix(&lex.slice()[2..lex.slice().len()-3], 16).ok())]
+    LiteralU16(u16),
     #[regex("[0-9]+u8", |lex| lex.slice()[..lex.slice().len()-2].parse::<u8>().ok())]
     #[regex(r"0[xX][0-9a-fA-F]+u8", |lex| u8::from_str_radix(&lex.slice()[2..lex.slice().len()-2], 16).ok())]
     LiteralU8(u8),

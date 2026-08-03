@@ -37,10 +37,6 @@ pub(crate) fn substitute_type(
                 .map(|ty| substitute_type(ty, substitutions))
                 .collect::<Option<Vec<_>>>()?,
         }),
-        HIRType::Array { element_type, size } => Some(HIRType::Array {
-            element_type: Box::new(substitute_type(element_type, substitutions)?),
-            size: size.clone(),
-        }),
     }
 }
 

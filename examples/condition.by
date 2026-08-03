@@ -1,6 +1,8 @@
 import std.cfg;
 import std.math;
 import std.io;
+import std.str;
+
 
 module app;
 

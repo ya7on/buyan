@@ -9,6 +9,8 @@ pub struct BasicBlockId(pub usize);
 #[derive(Debug, Clone)]
 pub struct IRProgram {
     pub words: Vec<Spanned<IRWord>>,
+    pub types: Vec<IRType>,
+    pub static_data: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -41,19 +43,15 @@ pub enum IRTerminator {
 pub enum IRConstant {
     Bool(bool),
     U8(u8),
+    U16(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IRType {
     Bool,
     U8,
-    Struct {
-        fields: Vec<Self>,
-    },
-    Array {
-        element_type: Box<Self>,
-        size: usize,
-    },
+    U16,
+    Struct { fields: Vec<Self> },
     Lambda,
 }
 
@@ -63,11 +61,11 @@ pub enum IRInstruction {
     PushLambda { word_id: WordId },
     CallDirect { word_id: WordId },
     CallIndirect,
-    Pack { type_id: TypeId, field_count: usize },
+    Pack { type_id: TypeId },
     Unpack { type_id: TypeId },
     GetField { type_id: TypeId, field_index: usize },
-    PackArray { element_count: usize },
-    ArrayIndex,
+    Load,
+    Store,
     Drop { ty: IRType },
     Dup { ty: IRType },
     Swap { lower: IRType, upper: IRType },
@@ -78,5 +76,5 @@ pub enum IRInstruction {
     Eq { ty: IRType },
     Gt { ty: IRType },
     Lt { ty: IRType },
-    Print { ty: IRType },
+    Print,
 }

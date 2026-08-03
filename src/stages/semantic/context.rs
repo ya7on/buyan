@@ -4,8 +4,8 @@ use crate::{
     common::{DottedPath, Spanned},
     error::DiagnosticMessage,
     stages::{
-        parse::ast::{ASTConst, ASTModule, ASTStackEffectItem, ASTStruct, ASTWord, ASTWordVar},
-        semantic::hir::{HIRConst, HIRType},
+        parse::ast::{ASTModule, ASTStackEffectItem, ASTStruct, ASTWord, ASTWordVar},
+        semantic::hir::HIRType,
     },
 };
 
@@ -153,6 +153,40 @@ impl HIRContext {
                 label: "failed to register built-in type 'bool'".to_string(),
             })?;
 
+        // u16
+        result
+            .register(
+                &DottedPath::parse("u16"),
+                SymbolKind::Type {
+                    name: "u16".to_string(),
+                    traits: vec![
+                        copy_trait_id,
+                        add_trait_id,
+                        sub_trait_id,
+                        mul_trait_id,
+                        div_trait_id,
+                        eq_trait_id,
+                        ord_trait_id,
+                    ],
+                },
+            )
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in type 'u16'".to_string(),
+            })?;
+
+        // ptr
+        result
+            .register(
+                &DottedPath::parse("ptr"),
+                SymbolKind::Type {
+                    name: "ptr".to_string(),
+                    traits: vec![copy_trait_id],
+                },
+            )
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in type 'ptr'".to_string(),
+            })?;
+
         // u8
         result
             .register(
@@ -212,16 +246,6 @@ impl HIRContext {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            HIRType::Array { element_type, size } => {
-                let size = match size {
-                    HIRConst::Value(value) => value.to_string(),
-                    HIRConst::Var(symbol_id) => match self.get(*symbol_id) {
-                        Some(SymbolKind::TypeVar { name, .. }) => name.clone(),
-                        _ => "<unknown>".to_string(),
-                    },
-                };
-                format!("[{}; {size}]", self.format_type(element_type))
-            }
         }
     }
 
@@ -456,35 +480,6 @@ impl HIRContext {
                 Ok(HIRType::Lambda {
                     stack_in,
                     stack_out,
-                })
-            }
-            ASTStackEffectItem::Array { element_type, size } => {
-                let hir_type = self.handle_stack_item(module_name, wordpath, element_type)?;
-                if matches!(hir_type, HIRType::StackVar(_)) {
-                    return Err(DiagnosticMessage::InvalidSymbol {
-                        name: "stack variable cannot be an array element type".to_string(),
-                        span: element_type.span,
-                    });
-                }
-
-                let size = match &size.value {
-                    ASTConst::Value(value) => HIRConst::Value(*value),
-                    ASTConst::Var(name) => {
-                        let Some((symbol_id, SymbolKind::TypeVar { .. })) =
-                            self.lookup_and_get(&wordpath.append(name))
-                        else {
-                            return Err(DiagnosticMessage::SymbolNotFound {
-                                name: name.clone(),
-                                span: size.span,
-                            });
-                        };
-                        HIRConst::Var(symbol_id)
-                    }
-                };
-
-                Ok(HIRType::Array {
-                    element_type: Box::new(hir_type),
-                    size,
                 })
             }
         }

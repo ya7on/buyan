@@ -27,6 +27,7 @@ where
             TokenKind::LiteralBool(value) => ASTInstruction::Literal(ASTLiteral::Bool(value)),
             TokenKind::LiteralString(value) => ASTInstruction::Literal(ASTLiteral::String(value)),
             TokenKind::LiteralU8(value) => ASTInstruction::Literal(ASTLiteral::U8(value)),
+            TokenKind::LiteralU16(value) => ASTInstruction::Literal(ASTLiteral::U16(value)),
         };
 
         let path = select! {
@@ -82,21 +83,6 @@ where
             )
             .map(|(stack_effect, body)| ASTInstruction::Lambda { stack_effect, body });
 
-        let array = instr
-            .clone()
-            .map_with(|instr, extra| {
-                let span: SourceSpan = extra.span();
-                Spanned::new(instr, span)
-            })
-            .separated_by(just(TokenKind::Comma))
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .delimited_by(
-                just(TokenKind::LeftSquareBracket),
-                just(TokenKind::RightSquareBracket),
-            )
-            .map(|elements| ASTInstruction::Array { elements });
-
-        choice((lambda, literal, pack, unpack, call, array))
+        choice((lambda, literal, pack, unpack, call))
     })
 }

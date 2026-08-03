@@ -98,15 +98,14 @@ pub enum DiagnosticMessage {
         expected_stack: Vec<String>,
         actual_stack: Vec<String>,
     },
-    InvalidArrayValue {
-        label: String,
-        span: Span,
-    },
     NonAsciiString {
         span: Span,
     },
     CannotInferType {
         label: String,
+        span: Span,
+    },
+    DataIsTooBig {
         span: Span,
     },
     EmptyWord {
@@ -146,9 +145,9 @@ impl DiagnosticMessage {
             Self::InvalidStack { .. } => 12,
             Self::EmptyWord { .. } => 13,
             Self::UnusedImport { .. } => 14,
-            Self::InvalidArrayValue { .. } => 16,
-            Self::CannotInferType { .. } => 17,
-            Self::NonAsciiString { .. } => 18,
+            Self::CannotInferType { .. } => 16,
+            Self::NonAsciiString { .. } => 17,
+            Self::DataIsTooBig { .. } => 18,
         }
     }
 
@@ -167,9 +166,9 @@ impl DiagnosticMessage {
             | Self::RecursiveStruct { span, .. }
             | Self::InvalidFieldIndex { span, .. }
             | Self::InvalidStack { span, .. }
-            | Self::InvalidArrayValue { span, .. }
             | Self::NonAsciiString { span }
-            | Self::CannotInferType { span, .. } => Some(*span),
+            | Self::CannotInferType { span, .. }
+            | Self::DataIsTooBig { span } => Some(*span),
             Self::Unknown { .. } | Self::RuntimeError(_) | Self::FileNotFound { .. } => None,
         }
     }
@@ -210,9 +209,9 @@ impl DiagnosticMessage {
             Self::RecursiveStruct { .. } => "Recursive Struct",
             Self::InvalidFieldIndex { .. } => "Invalid Field Index",
             Self::InvalidStack { .. } => "Invalid Stack",
-            Self::InvalidArrayValue { .. } => "Invalid Array Value",
             Self::NonAsciiString { .. } => "Invalid String Literal",
             Self::CannotInferType { .. } => "Cannot Infer Type",
+            Self::DataIsTooBig { .. } => "Data Is Too Big",
             Self::EmptyWord { .. } => "Empty Word",
             Self::UnusedImport { .. } => "Unused Import",
         }
@@ -221,7 +220,6 @@ impl DiagnosticMessage {
     #[must_use]
     pub fn description(&self) -> String {
         match self {
-            Self::Unknown { label } => label.clone(),
             Self::RuntimeError(label) => (*label).to_string(),
             Self::FileNotFound { path } => format!("file '{path}' could not be found"),
             Self::ImportError { path, .. } => {
@@ -265,8 +263,9 @@ impl DiagnosticMessage {
                 expected_stack.join(", "),
                 actual_stack.join(", ")
             ),
-            Self::InvalidArrayValue { label, .. } | Self::CannotInferType { label, .. } => {
-                label.clone()
+            Self::Unknown { label } | Self::CannotInferType { label, .. } => label.clone(),
+            Self::DataIsTooBig { .. } => {
+                "data does not fit in the available static memory".to_string()
             }
             Self::NonAsciiString { .. } => {
                 "string literals must contain only ASCII characters".to_string()

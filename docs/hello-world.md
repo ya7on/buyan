@@ -2,6 +2,7 @@
 
 ```buyan
 import std.io;
+import std.str;
 
 module hello_world;
 

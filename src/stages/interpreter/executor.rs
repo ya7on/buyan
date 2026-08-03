@@ -6,7 +6,9 @@ use crate::{
     pipeline::{Stage, StageResult},
     stages::lower::{
         context::{IRContext, TypeId, WordId},
-        ir::{BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator},
+        ir::{
+            BasicBlockId, IRBasicBlock, IRConstant, IRInstruction, IRProgram, IRTerminator, IRType,
+        },
     },
 };
 
@@ -14,9 +16,9 @@ use crate::{
 pub enum IRValue {
     Bool(bool),
     U8(u8),
+    U16(u16),
     Lambda(WordId),
     Struct { type_id: TypeId, fields: Vec<Self> },
-    Array(Vec<Self>),
 }
 
 impl IRValue {
@@ -24,13 +26,24 @@ impl IRValue {
         match constant {
             IRConstant::Bool(value) => Self::Bool(*value),
             IRConstant::U8(value) => Self::U8(*value),
+            IRConstant::U16(value) => Self::U16(*value),
         }
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct IRInterpreter {
     stack: Vec<IRValue>,
+    memory: Vec<u8>,
+}
+
+impl Default for IRInterpreter {
+    fn default() -> Self {
+        Self {
+            stack: Vec::new(),
+            memory: vec![0; usize::from(u16::MAX) + 1],
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -42,6 +55,8 @@ impl IRInterpreter {
 
     fn execute_program(&mut self, program: &IRProgram) -> Result<(), DiagnosticMessage> {
         self.stack.clear();
+        self.memory.fill(0);
+        self.memory[..program.static_data.len()].copy_from_slice(&program.static_data);
 
         let word_id = program
             .words
@@ -105,29 +120,20 @@ impl IRInterpreter {
                         }
                     }
                 }
-                IRInstruction::Pack {
-                    type_id,
-                    field_count,
-                } => {
+                IRInstruction::Pack { type_id } => {
+                    let Some(IRType::Struct { fields }) = program.types.get(type_id.id()) else {
+                        return Err(DiagnosticMessage::RuntimeError("pack expects struct type"));
+                    };
                     let start = self
                         .stack
                         .len()
-                        .checked_sub(*field_count)
+                        .checked_sub(fields.len())
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     let fields = self.stack.split_off(start);
                     self.stack.push(IRValue::Struct {
                         type_id: *type_id,
                         fields,
                     });
-                }
-                IRInstruction::PackArray { element_count } => {
-                    let start = self
-                        .stack
-                        .len()
-                        .checked_sub(*element_count)
-                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                    let elements = self.stack.split_off(start);
-                    self.stack.push(IRValue::Array(elements));
                 }
                 IRInstruction::Unpack { type_id } => {
                     let value = self
@@ -166,26 +172,38 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("field index out of bounds"))?;
                     self.stack.push(field);
                 }
-                IRInstruction::ArrayIndex => {
-                    let index = self
+                IRInstruction::Load => {
+                    let address = self
                         .stack
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                    let array = self
+                    let IRValue::U16(address) = address else {
+                        panic!("load expects ptr");
+                    };
+                    let value = *self.memory.get(usize::from(address)).ok_or(
+                        DiagnosticMessage::RuntimeError("memory address out of bounds"),
+                    )?;
+                    self.stack.push(IRValue::U8(value));
+                }
+                IRInstruction::Store => {
+                    let value = self
                         .stack
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                    let IRValue::U8(index) = index else {
-                        panic!("array index expects u8 index");
+                    let address = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let IRValue::U8(value) = value else {
+                        panic!("store expects u8 value");
                     };
-                    let IRValue::Array(elements) = array else {
-                        panic!("array index expects array");
+                    let IRValue::U16(address) = address else {
+                        panic!("store expects ptr");
                     };
-                    let element = elements
-                        .into_iter()
-                        .nth(usize::from(index))
-                        .ok_or(DiagnosticMessage::RuntimeError("array index out of bounds"))?;
-                    self.stack.push(element);
+                    let slot = self.memory.get_mut(usize::from(address)).ok_or(
+                        DiagnosticMessage::RuntimeError("memory address out of bounds"),
+                    )?;
+                    *slot = value;
                 }
                 IRInstruction::Swap { .. } => {
                     let rhs = self
@@ -223,7 +241,10 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
-                            self.stack.push(IRValue::U8(lhs + rhs));
+                            self.stack.push(IRValue::U8(lhs.wrapping_add(rhs)));
+                        }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
+                            self.stack.push(IRValue::U16(lhs.wrapping_add(rhs)));
                         }
                         _ => todo!(),
                     }
@@ -239,7 +260,10 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
-                            self.stack.push(IRValue::U8(lhs - rhs));
+                            self.stack.push(IRValue::U8(lhs.wrapping_sub(rhs)));
+                        }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
+                            self.stack.push(IRValue::U16(lhs.wrapping_sub(rhs)));
                         }
                         _ => todo!(),
                     }
@@ -255,7 +279,10 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
-                            self.stack.push(IRValue::U8(lhs * rhs));
+                            self.stack.push(IRValue::U8(lhs.wrapping_mul(rhs)));
+                        }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
+                            self.stack.push(IRValue::U16(lhs.wrapping_mul(rhs)));
                         }
                         _ => todo!(),
                     }
@@ -272,6 +299,9 @@ impl IRInterpreter {
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::U8(lhs / rhs));
+                        }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
+                            self.stack.push(IRValue::U16(lhs / rhs));
                         }
                         _ => todo!(),
                     }
@@ -292,6 +322,9 @@ impl IRInterpreter {
                         (IRValue::Bool(lhs), IRValue::Bool(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs == rhs));
                         }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs == rhs));
+                        }
                         _ => todo!(),
                     }
                 }
@@ -306,6 +339,9 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs > rhs));
+                        }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs > rhs));
                         }
                         _ => panic!("gt expects u8 operands"),
@@ -324,41 +360,43 @@ impl IRInterpreter {
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs < rhs));
                         }
+                        (IRValue::U16(lhs), IRValue::U16(rhs)) => {
+                            self.stack.push(IRValue::Bool(lhs < rhs));
+                        }
                         _ => panic!("lt expects u8 operands"),
                     }
                 }
-                IRInstruction::Print { .. } => {
+                IRInstruction::Print => {
                     let value = self
                         .stack
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                    match value {
-                        IRValue::Array(values) => {
-                            let bytes = values
-                                .into_iter()
-                                .map(|value| match value {
-                                    IRValue::U8(value) => Ok(value),
-                                    _ => Err(DiagnosticMessage::RuntimeError(
-                                        "print expects an array of u8",
-                                    )),
-                                })
-                                .collect::<Result<Vec<_>, _>>()?;
-                            std::io::stdout().write_all(&bytes).map_err(|_| {
-                                DiagnosticMessage::RuntimeError("failed to write output")
-                            })?;
-                        }
-                        IRValue::U8(value) => {
-                            print!("{value}");
-                        }
-                        IRValue::Bool(value) => {
-                            print!("{value}");
-                        }
-                        _ => {
-                            print!("{value:?}");
-                        }
-                    }
+                    let IRValue::Struct { fields, .. } = value else {
+                        panic!("print string expects Str");
+                    };
+                    let [IRValue::U16(address)] = fields.as_slice() else {
+                        panic!("Str must contain ptr");
+                    };
+                    let start = usize::from(*address);
+                    let length = usize::from(self.memory[start]);
+                    let end = start + length + 1;
+                    let bytes =
+                        self.memory
+                            .get(start + 1..end)
+                            .ok_or(DiagnosticMessage::RuntimeError(
+                                "string exceeds virtual memory",
+                            ))?;
+                    std::io::stdout()
+                        .write_all(bytes)
+                        .map_err(|_| DiagnosticMessage::RuntimeError("failed to write output"))?;
                 }
             }
+
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "\x1b[38;5;240m[interpreter] {:?} => {:?}\x1b[0m",
+                instruction.value, self.stack
+            );
         }
 
         let next_block = match &block.terminator.value {

@@ -352,35 +352,17 @@ def main( -- )
 end
 ```
 
-## B0016
+## B0015
 
-**Invalid Array Value**
+**Runtime Error**
 
-An array literal contains a value that is not allowed in an array or whose type does not match the other elements.
-
-**Example**
-
-```buyan
-module app;
-
-def main( -- )
-    [1u8, true]
-end
-```
+The interpreter encountered an invalid runtime condition, such as reading an invalid string from virtual memory.
 
 **How to fix**
 
-Use vaues of one element type throughout the array.
+Check the stack effects and unsafe-memory accesses that lead to the failing operation.
 
-```buyan
-module app;
-
-def main( -- )
-    [1u8, 2u8]
-end
-```
-
-## B0017
+## B0016
 
 **Cannot Infer Type**
 
@@ -414,3 +396,23 @@ def main( -- u8)
     identity
 end
 ```
+
+## B0017
+
+**Invalid String Literal**
+
+String literals may contain only ASCII characters.
+
+**How to fix**
+
+Replace non-ASCII characters with an ASCII representation.
+
+## B0018
+
+**Data Is Too Big**
+
+A string literal or the accumulated static data does not fit in the interpreter's 64 KiB virtual memory image.
+
+**How to fix**
+
+Use a shorter literal or reduce the amount of static data in the program.

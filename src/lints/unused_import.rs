@@ -4,7 +4,7 @@ use crate::{
     lints::Lint,
     stages::semantic::{
         context::{HIRContext, SymbolKind},
-        hir::{HIRInstruction, HIRModule, HIRProgram},
+        hir::{HIRInstruction, HIRLiteral, HIRModule, HIRProgram},
     },
 };
 
@@ -50,13 +50,17 @@ impl Lint for UnusedImport {
         _diagnostics: &mut Diagnostics,
     ) {
         let name = match &instruction.value {
+            HIRInstruction::Literal(HIRLiteral::String { .. }) => {
+                if let Some(imports) = self.imports.last_mut() {
+                    imports.retain(|import| import.name != "std.str");
+                }
+                return;
+            }
             HIRInstruction::Call { name, .. }
             | HIRInstruction::Pack { name, .. }
             | HIRInstruction::Unpack { name, .. }
             | HIRInstruction::GetField { name, .. } => name,
-            HIRInstruction::Literal(_)
-            | HIRInstruction::Lambda { .. }
-            | HIRInstruction::Array { .. } => return,
+            HIRInstruction::Literal(_) | HIRInstruction::Lambda { .. } => return,
         };
         let Some(imports) = self.imports.last_mut() else {
             return;
