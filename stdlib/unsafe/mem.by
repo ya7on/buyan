@@ -1,7 +1,7 @@
+import std.intrinsics;
+
 module std.unsafe.mem;
 
-#[builtin]
-def load(ptr -- u8) end
+def load(ptr -- u8) std.intrinsics.load end
 
-#[builtin]
-def store(ptr, u8 -- ) end
+def store(ptr, u8 -- ) std.intrinsics.store end

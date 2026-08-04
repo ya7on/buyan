@@ -69,6 +69,16 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
             for import in &parse_result.ast.imports {
                 if import.first() == Some("std") {
                     match import.to_string().as_str() {
+                        "std.intrinsics" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/intrinsics.by"),
+                                content: include_str!("../../../stdlib/intrinsics.by").to_string(),
+                                name: "std.intrinsics".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
                         "std.stack" => {
                             let module = Module {
                                 absolute: PathBuf::from("stdlib/stack.by"),

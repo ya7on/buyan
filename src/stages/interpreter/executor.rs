@@ -205,6 +205,18 @@ impl IRInterpreter {
                     )?;
                     *slot = value;
                 }
+                IRInstruction::Cast { from, to } => {
+                    let value = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    match (from, to, value) {
+                        (IRType::U8, IRType::U16, IRValue::U8(value)) => {
+                            self.stack.push(IRValue::U16(u16::from(value)));
+                        }
+                        _ => return Err(DiagnosticMessage::RuntimeError("invalid cast")),
+                    }
+                }
                 IRInstruction::Swap { .. } => {
                     let rhs = self
                         .stack
@@ -216,6 +228,19 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     self.stack.push(rhs);
                     self.stack.push(lhs);
+                }
+                IRInstruction::Over { .. } => {
+                    let upper = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lower = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    self.stack.push(lower.clone());
+                    self.stack.push(upper);
+                    self.stack.push(lower);
                 }
                 IRInstruction::Dup { .. } => {
                     let value = self
@@ -366,28 +391,16 @@ impl IRInterpreter {
                         _ => panic!("lt expects u8 operands"),
                     }
                 }
-                IRInstruction::Print => {
+                IRInstruction::PutChar => {
                     let value = self
                         .stack
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                    let IRValue::Struct { fields, .. } = value else {
-                        panic!("print string expects Str");
+                    let IRValue::U8(value) = value else {
+                        panic!("put char expects u8");
                     };
-                    let [IRValue::U16(address)] = fields.as_slice() else {
-                        panic!("Str must contain ptr");
-                    };
-                    let start = usize::from(*address);
-                    let length = usize::from(self.memory[start]);
-                    let end = start + length + 1;
-                    let bytes =
-                        self.memory
-                            .get(start + 1..end)
-                            .ok_or(DiagnosticMessage::RuntimeError(
-                                "string exceeds virtual memory",
-                            ))?;
                     std::io::stdout()
-                        .write_all(bytes)
+                        .write_all(&[value])
                         .map_err(|_| DiagnosticMessage::RuntimeError("failed to write output"))?;
                 }
             }

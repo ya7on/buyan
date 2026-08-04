@@ -1,22 +1,19 @@
+import std.intrinsics;
+
 module std.u16;
 
-#[builtin]
-def add(u16, u16 -- u16) end
+def from_u8(u8 -- u16) std.intrinsics.u8_to_u16 end
 
-#[builtin]
-def sub(u16, u16 -- u16) end
+def add(u16, u16 -- u16) std.intrinsics.add end
 
-#[builtin]
-def mul(u16, u16 -- u16) end
+def sub(u16, u16 -- u16) std.intrinsics.sub end
 
-#[builtin]
-def div(u16, u16 -- u16) end
+def mul(u16, u16 -- u16) std.intrinsics.mul end
 
-#[builtin]
-def eq(u16, u16 -- bool) end
+def div(u16, u16 -- u16) std.intrinsics.div end
 
-#[builtin]
-def gt(u16, u16 -- bool) end
+def eq(u16, u16 -- bool) std.intrinsics.eq end
 
-#[builtin]
-def lt(u16, u16 -- bool) end
+def gt(u16, u16 -- bool) std.intrinsics.gt end
+
+def lt(u16, u16 -- bool) std.intrinsics.lt end

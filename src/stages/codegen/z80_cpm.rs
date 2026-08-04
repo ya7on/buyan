@@ -42,7 +42,7 @@ impl Z80CpmCodegenStage {
                     IRInstruction::CallDirect { word_id } => {
                         println!("\tcall {}", Self::word_label(*word_id));
                     }
-                    IRInstruction::Print => println!("; UNSUPPORTED PRINT"),
+                    IRInstruction::PutChar => println!("; UNSUPPORTED PUT CHAR"),
                     _ => {
                         println!("; UNSUPPORTED INSTRUCTION: {instruction:?}");
                     }

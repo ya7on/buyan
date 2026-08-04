@@ -1,10 +1,32 @@
-
+import std.stack;
 import std.str;
+import std.u8;
+import std.u16;
+import std.intrinsics;
+import std.cfg;
 
 module std.io;
 
-#[builtin]
-def print(std.str.Str -- ) end
+def print(std.str.Str -- )
+    0u8
+    | std.str.Str, u8 -- std.str.Str, u8, bool | {
+        std.stack.over                              // Str u8 Str
+        std.str.len                                 // Str u8 u8
+        std.stack.over                              // Str u8 u8 u8
+        std.stack.swap                              // Str u8 u8 u8
+        std.u8.lt
+    }
+    | std.str.Str, u8 -- std.str.Str, u8 | {
+        std.stack.over std.stack.over               // Str u8 Str u8
+        std.u16.from_u8                             // Str u8 Str u16
+        std.str.get                                 // Str u8 u8
+        std.intrinsics.put_char                     // Str u8
+
+        1u8 std.u8.add
+    }
+    std.cfg.while
+    std.stack.drop std.stack.drop
+end
 
 def println(std.str.Str -- )
     print

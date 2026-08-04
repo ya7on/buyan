@@ -1,0 +1,52 @@
+module std.intrinsics;
+
+#[builtin]
+def add<T>(T, T -- T) end
+
+#[builtin]
+def sub<T>(T, T -- T) end
+
+#[builtin]
+def mul<T>(T, T -- T) end
+
+#[builtin]
+def div<T>(T, T -- T) end
+
+#[builtin]
+def eq<T>(T, T -- bool) end
+
+#[builtin]
+def gt<T>(T, T -- bool) end
+
+#[builtin]
+def lt<T>(T, T -- bool) end
+
+#[builtin]
+def drop<T>(T -- ) end
+
+#[builtin]
+def dup<T>(T -- T, T) end
+
+#[builtin]
+def swap<A, B>(A, B -- B, A) end
+
+#[builtin]
+def over<A, B>(A, B -- A, B, A) end
+
+#[builtin]
+def call<...S, ...R>(...S, |...S -- ...R| -- ...R) end
+
+#[builtin]
+def put_char(u8 -- ) end
+
+#[builtin]
+def u8_to_u16(u8 -- u16) end
+
+#[builtin]
+def offset(ptr, u16 -- ptr) end
+
+#[builtin]
+def load(ptr -- u8) end
+
+#[builtin]
+def store(ptr, u8 -- ) end

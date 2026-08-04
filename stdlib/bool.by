@@ -1,4 +1,5 @@
+import std.intrinsics;
+
 module std.bool;
 
-#[builtin]
-def eq(bool, bool -- bool) end
+def eq(bool, bool -- bool) std.intrinsics.eq end

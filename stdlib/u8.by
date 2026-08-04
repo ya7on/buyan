@@ -1,22 +1,17 @@
+import std.intrinsics;
+
 module std.u8;
 
-#[builtin]
-def add(u8, u8 -- u8) end
+def add(u8, u8 -- u8) std.intrinsics.add end
 
-#[builtin]
-def sub(u8, u8 -- u8) end
+def sub(u8, u8 -- u8) std.intrinsics.sub end
 
-#[builtin]
-def mul(u8, u8 -- u8) end
+def mul(u8, u8 -- u8) std.intrinsics.mul end
 
-#[builtin]
-def div(u8, u8 -- u8) end
+def div(u8, u8 -- u8) std.intrinsics.div end
 
-#[builtin]
-def eq(u8, u8 -- bool) end
+def eq(u8, u8 -- bool) std.intrinsics.eq end
 
-#[builtin]
-def gt(u8, u8 -- bool) end
+def gt(u8, u8 -- bool) std.intrinsics.gt end
 
-#[builtin]
-def lt(u8, u8 -- bool) end
+def lt(u8, u8 -- bool) std.intrinsics.lt end

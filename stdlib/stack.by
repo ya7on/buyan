@@ -1,22 +1,23 @@
+import std.intrinsics;
+
 module std.stack;
 
 // Drop the top element from the stack.
-#[builtin]
-def drop<T>(T --) end
+def drop<T>(T --) std.intrinsics.drop end
 
 // Duplicate the top element on the stack.
-#[builtin]
-def dup<T>(T -- T, T) end
+def dup<T>(T -- T, T) std.intrinsics.dup end
 
 // Swap the top two elements on the stack.
-#[builtin]
-def swap<A, B>(A, B -- B, A) end
+def swap<A, B>(A, B -- B, A) std.intrinsics.swap end
+
+// Duplicate the second element from the top of the stack.
+def over<A, B>(A, B -- A, B, A) std.intrinsics.over end
 
 // Call a function with the given arguments.
-#[builtin]
 def call<...S, ...R>(
     ...S,
     |...S -- ...R| // body
     --
     ...R
-) end
+) std.intrinsics.call end

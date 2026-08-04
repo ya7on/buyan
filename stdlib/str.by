@@ -1,3 +1,20 @@
+import std.ptr;
+import std.unsafe.mem;
+
 module std.str;
 
 struct Str(ptr);
+
+def len( Str -- u8 )
+    Str.0 std.unsafe.mem.load
+end
+
+def get( Str, u16 -- u8 )
+    std.stack.swap
+    Str.0
+    std.stack.swap
+    std.ptr.offset
+    1u16
+    std.ptr.offset
+    std.unsafe.mem.load
+end

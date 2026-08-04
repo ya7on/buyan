@@ -66,9 +66,11 @@ pub enum IRInstruction {
     GetField { type_id: TypeId, field_index: usize },
     Load,
     Store,
+    Cast { from: IRType, to: IRType },
     Drop { ty: IRType },
     Dup { ty: IRType },
     Swap { lower: IRType, upper: IRType },
+    Over { lower: IRType, upper: IRType },
     Add { ty: IRType },
     Sub { ty: IRType },
     Mul { ty: IRType },
@@ -76,5 +78,5 @@ pub enum IRInstruction {
     Eq { ty: IRType },
     Gt { ty: IRType },
     Lt { ty: IRType },
-    Print,
+    PutChar,
 }

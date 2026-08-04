@@ -308,14 +308,23 @@ impl LowerStage {
 
                             basicblock = BasicBlockBuilder::default();
                         }
-                        "std.io.print" => {
-                            basicblock.push(Spanned::new(IRInstruction::Print, instruction.span));
+                        "std.intrinsics.put_char" => {
+                            basicblock.push(Spanned::new(IRInstruction::PutChar, instruction.span));
                         }
-                        "std.stack.call" => {
+                        "std.intrinsics.u8_to_u16" => {
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Cast {
+                                    from: IRType::U8,
+                                    to: IRType::U16,
+                                },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.call" => {
                             basicblock
                                 .push(Spanned::new(IRInstruction::CallIndirect, instruction.span));
                         }
-                        "std.stack.drop" => {
+                        "std.intrinsics.drop" => {
                             let Some(ty) = type_args.first() else {
                                 errors.push(DiagnosticMessage::CannotInferType {
                                     label: format!("missing type argument for '{name}'"),
@@ -328,7 +337,7 @@ impl LowerStage {
                                 instruction.span,
                             ));
                         }
-                        "std.stack.dup" => {
+                        "std.intrinsics.dup" => {
                             let Some(ty) = type_args.first() else {
                                 errors.push(DiagnosticMessage::CannotInferType {
                                     label: format!("missing type argument for '{name}'"),
@@ -341,7 +350,7 @@ impl LowerStage {
                                 instruction.span,
                             ));
                         }
-                        "std.stack.swap" => {
+                        "std.intrinsics.swap" => {
                             let (Some(lower), Some(upper)) = (type_args.first(), type_args.get(1))
                             else {
                                 errors.push(DiagnosticMessage::CannotInferType {
@@ -358,76 +367,124 @@ impl LowerStage {
                                 instruction.span,
                             ));
                         }
-                        "std.u8.add" => basicblock.push(Spanned::new(
-                            IRInstruction::Add { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u8.sub" => basicblock.push(Spanned::new(
-                            IRInstruction::Sub { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u8.mul" => basicblock.push(Spanned::new(
-                            IRInstruction::Mul { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u8.div" => basicblock.push(Spanned::new(
-                            IRInstruction::Div { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u8.eq" => basicblock.push(Spanned::new(
-                            IRInstruction::Eq { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u8.gt" => basicblock.push(Spanned::new(
-                            IRInstruction::Gt { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u8.lt" => basicblock.push(Spanned::new(
-                            IRInstruction::Lt { ty: IRType::U8 },
-                            instruction.span,
-                        )),
-                        "std.u16.add" => basicblock.push(Spanned::new(
-                            IRInstruction::Add { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.u16.sub" => basicblock.push(Spanned::new(
-                            IRInstruction::Sub { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.u16.mul" => basicblock.push(Spanned::new(
-                            IRInstruction::Mul { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.u16.div" => basicblock.push(Spanned::new(
-                            IRInstruction::Div { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.u16.eq" => basicblock.push(Spanned::new(
-                            IRInstruction::Eq { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.u16.gt" => basicblock.push(Spanned::new(
-                            IRInstruction::Gt { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.u16.lt" => basicblock.push(Spanned::new(
-                            IRInstruction::Lt { ty: IRType::U16 },
-                            instruction.span,
-                        )),
-                        "std.bool.eq" => basicblock.push(Spanned::new(
-                            IRInstruction::Eq { ty: IRType::Bool },
-                            instruction.span,
-                        )),
-                        "std.ptr.offset" => {
+                        "std.intrinsics.over" => {
+                            let (Some(lower), Some(upper)) = (type_args.first(), type_args.get(1))
+                            else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type arguments for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Over {
+                                    lower: lower.clone(),
+                                    upper: upper.clone(),
+                                },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.add" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Add { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.sub" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Sub { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.mul" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Mul { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.div" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Div { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.eq" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Eq { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.gt" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Gt { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.lt" => {
+                            let Some(ty) = type_args.first() else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type argument for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Lt { ty: ty.clone() },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.offset" => {
                             basicblock.push(Spanned::new(
                                 IRInstruction::Add { ty: IRType::U16 },
                                 instruction.span,
                             ));
                         }
-                        "std.unsafe.mem.load" => {
+                        "std.intrinsics.load" => {
                             basicblock.push(Spanned::new(IRInstruction::Load, instruction.span));
                         }
-                        "std.unsafe.mem.store" => {
+                        "std.intrinsics.store" => {
                             basicblock.push(Spanned::new(IRInstruction::Store, instruction.span));
                         }
                         // Real word call
