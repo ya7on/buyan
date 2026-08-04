@@ -1,5 +1,6 @@
 import std.ptr;
 import std.unsafe.mem;
+import std.u16;
 
 module std.str;
 
@@ -9,10 +10,11 @@ def len( Str -- u8 )
     Str.0 std.unsafe.mem.load
 end
 
-def get( Str, u16 -- u8 )
+def get( Str, u8 -- u8 )
     std.stack.swap
     Str.0
     std.stack.swap
+    std.u16.from_u8
     std.ptr.offset
     1u16
     std.ptr.offset

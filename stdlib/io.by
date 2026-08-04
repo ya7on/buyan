@@ -1,7 +1,6 @@
 import std.stack;
 import std.str;
 import std.u8;
-import std.u16;
 import std.intrinsics;
 import std.cfg;
 
@@ -18,7 +17,6 @@ def print(std.str.Str -- )
     }
     | std.str.Str, u8 -- std.str.Str, u8 | {
         std.stack.over std.stack.over               // Str u8 Str u8
-        std.u16.from_u8                             // Str u8 Str u16
         std.str.get                                 // Str u8 u8
         std.intrinsics.put_char                     // Str u8
 
