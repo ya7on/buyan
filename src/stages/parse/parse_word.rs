@@ -54,23 +54,7 @@ where
             let span: SourceSpan = extra.span();
             Spanned::new(name, span)
         })
-        .then(
-            just(TokenKind::Colon)
-                .ignore_then(
-                    select! {
-                        TokenKind::Ident(name) => name,
-                    }
-                    .map_with(|name, extra| {
-                        let span: SourceSpan = extra.span();
-                        Spanned::new(name, span)
-                    })
-                    .separated_by(just(TokenKind::Plus))
-                    .collect::<Vec<_>>(),
-                )
-                .or_not()
-                .map(Option::unwrap_or_default),
-        )
-        .map(|(name, traits)| ASTWordVar::Type { name, traits });
+        .map(|name| ASTWordVar::Type { name });
     let word_vars = type_var
         .or(stack_var)
         .separated_by(just(TokenKind::Comma))

@@ -1,0 +1,22 @@
+module std.u16;
+
+#[builtin]
+def add(u16, u16 -- u16) end
+
+#[builtin]
+def sub(u16, u16 -- u16) end
+
+#[builtin]
+def mul(u16, u16 -- u16) end
+
+#[builtin]
+def div(u16, u16 -- u16) end
+
+#[builtin]
+def eq(u16, u16 -- bool) end
+
+#[builtin]
+def gt(u16, u16 -- bool) end
+
+#[builtin]
+def lt(u16, u16 -- bool) end

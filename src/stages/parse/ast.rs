@@ -21,13 +21,8 @@ pub struct ASTStruct {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ASTWordVar {
-    Type {
-        name: Spanned<String>,
-        traits: Vec<Spanned<String>>,
-    },
-    Stack {
-        name: Spanned<String>,
-    },
+    Type { name: Spanned<String> },
+    Stack { name: Spanned<String> },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

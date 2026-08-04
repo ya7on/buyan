@@ -1,5 +1,5 @@
 import std.cfg;
-import std.math;
+import std.u8;
 import std.io;
 import std.str;
 
@@ -9,10 +9,10 @@ module app;
 def main(--)
     // Add two numbers to the stack and count the sum of them.
     2u8 2u8
-    std.math.add
+    std.u8.add
 
     // Check if the top of the stack is equal to 4.
-    4u8 std.math.eq
+    4u8 std.u8.eq
 
     // If the condition is true, print "2 + 2 = 4".
     // If the condition is false, print "Never be printed".

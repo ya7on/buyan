@@ -1,0 +1,4 @@
+module std.bool;
+
+#[builtin]
+def eq(bool, bool -- bool) end

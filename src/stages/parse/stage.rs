@@ -79,11 +79,31 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                                 queue.push(module);
                             }
                         }
-                        "std.math" => {
+                        "std.u8" => {
                             let module = Module {
-                                absolute: PathBuf::from("stdlib/math.by"),
-                                content: include_str!("../../../stdlib/math.by").to_string(),
-                                name: "std.math".to_string(),
+                                absolute: PathBuf::from("stdlib/u8.by"),
+                                content: include_str!("../../../stdlib/u8.by").to_string(),
+                                name: "std.u8".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
+                        "std.u16" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/u16.by"),
+                                content: include_str!("../../../stdlib/u16.by").to_string(),
+                                name: "std.u16".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
+                        "std.bool" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/bool.by"),
+                                content: include_str!("../../../stdlib/bool.by").to_string(),
+                                name: "std.bool".to_string(),
                             };
                             if visited.insert(module.absolute.clone()) {
                                 queue.push(module);

@@ -73,19 +73,7 @@ fn dump_word(buf: &mut String, word: &ASTWord) -> Result<(), std::fmt::Error> {
             .word_vars
             .iter()
             .map(|var| match var {
-                ASTWordVar::Stack { name } => name.to_string(),
-                ASTWordVar::Type { name, traits } => {
-                    let traits = traits
-                        .iter()
-                        .map(|t| t.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-                    vec![name.to_string(), traits]
-                        .into_iter()
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-                        .join(": ")
-                }
+                ASTWordVar::Stack { name } | ASTWordVar::Type { name } => name.to_string(),
             })
             .collect::<Vec<_>>()
             .join(", ");

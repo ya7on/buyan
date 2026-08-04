@@ -40,14 +40,9 @@ pub enum SymbolKind {
     },
     TypeVar {
         name: String,
-        traits: Vec<Spanned<SymbolId>>,
-    },
-    Trait {
-        name: String,
     },
     Type {
         name: String,
-        traits: Vec<SymbolId>,
     },
     Struct {
         name: String,
@@ -68,85 +63,12 @@ impl HIRContext {
             symbols: Vec::new(),
         };
 
-        // traits
-        let copy_trait_id = result
-            .register(
-                &DottedPath::parse("Copy"),
-                SymbolKind::Trait {
-                    name: "Copy".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Copy'".to_string(),
-            })?;
-        let add_trait_id = result
-            .register(
-                &DottedPath::parse("Add"),
-                SymbolKind::Trait {
-                    name: "Add".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Add'".to_string(),
-            })?;
-        let sub_trait_id = result
-            .register(
-                &DottedPath::parse("Sub"),
-                SymbolKind::Trait {
-                    name: "Sub".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Sub'".to_string(),
-            })?;
-        let mul_trait_id = result
-            .register(
-                &DottedPath::parse("Mul"),
-                SymbolKind::Trait {
-                    name: "Mul".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Mul'".to_string(),
-            })?;
-        let div_trait_id = result
-            .register(
-                &DottedPath::parse("Div"),
-                SymbolKind::Trait {
-                    name: "Div".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Div'".to_string(),
-            })?;
-        let eq_trait_id = result
-            .register(
-                &DottedPath::parse("Eq"),
-                SymbolKind::Trait {
-                    name: "Eq".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Eq'".to_string(),
-            })?;
-        let ord_trait_id = result
-            .register(
-                &DottedPath::parse("Ord"),
-                SymbolKind::Trait {
-                    name: "Ord".to_string(),
-                },
-            )
-            .ok_or_else(|| DiagnosticMessage::Unknown {
-                label: "failed to register built-in trait 'Ord'".to_string(),
-            })?;
-
         // bool
         result
             .register(
                 &DottedPath::parse("bool"),
                 SymbolKind::Type {
                     name: "bool".to_string(),
-                    traits: vec![copy_trait_id, eq_trait_id],
                 },
             )
             .ok_or_else(|| DiagnosticMessage::Unknown {
@@ -159,15 +81,6 @@ impl HIRContext {
                 &DottedPath::parse("u16"),
                 SymbolKind::Type {
                     name: "u16".to_string(),
-                    traits: vec![
-                        copy_trait_id,
-                        add_trait_id,
-                        sub_trait_id,
-                        mul_trait_id,
-                        div_trait_id,
-                        eq_trait_id,
-                        ord_trait_id,
-                    ],
                 },
             )
             .ok_or_else(|| DiagnosticMessage::Unknown {
@@ -180,7 +93,6 @@ impl HIRContext {
                 &DottedPath::parse("ptr"),
                 SymbolKind::Type {
                     name: "ptr".to_string(),
-                    traits: vec![copy_trait_id],
                 },
             )
             .ok_or_else(|| DiagnosticMessage::Unknown {
@@ -193,15 +105,6 @@ impl HIRContext {
                 &DottedPath::parse("u8"),
                 SymbolKind::Type {
                     name: "u8".to_string(),
-                    traits: vec![
-                        copy_trait_id,
-                        add_trait_id,
-                        sub_trait_id,
-                        mul_trait_id,
-                        div_trait_id,
-                        eq_trait_id,
-                        ord_trait_id,
-                    ],
                 },
             )
             .ok_or_else(|| DiagnosticMessage::Unknown {
@@ -333,27 +236,13 @@ impl HIRContext {
                         })?;
                     stackvars.push(Spanned::new(typevar_id, name.span));
                 }
-                ASTWordVar::Type { name, traits } => {
-                    let mut trait_ids = Vec::with_capacity(traits.len());
-                    for trait_name in traits {
-                        let Some((trait_id, SymbolKind::Trait { .. })) =
-                            self.lookup_and_get(&DottedPath::parse(trait_name))
-                        else {
-                            return Err(DiagnosticMessage::SymbolNotFound {
-                                name: trait_name.value.clone(),
-                                span: trait_name.span,
-                            });
-                        };
-                        trait_ids.push(Spanned::new(trait_id, trait_name.span));
-                    }
-
+                ASTWordVar::Type { name } => {
                     let fullpath = wordpath.append(name);
                     let typevar_id = self
                         .register(
                             &fullpath,
                             SymbolKind::TypeVar {
                                 name: name.to_string(),
-                                traits: trait_ids,
                             },
                         )
                         .ok_or_else(|| DiagnosticMessage::SymbolAlreadyExists {

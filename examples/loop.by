@@ -1,6 +1,6 @@
 import std.cfg;
 import std.io;
-import std.math;
+import std.u8;
 import std.stack;
 import std.str;
 
@@ -8,8 +8,8 @@ module example_loop;
 
 def main( -- )
     0u8
-    | u8 -- u8, bool | { std.stack.dup 5u8 std.math.lt }
-    | u8 -- u8 | { 1u8 std.math.add "iter" std.io.println }
+    | u8 -- u8, bool | { std.stack.dup 5u8 std.u8.lt }
+    | u8 -- u8 | { 1u8 std.u8.add "iter" std.io.println }
     std.cfg.while
     std.stack.drop
     "after loop" std.io.println

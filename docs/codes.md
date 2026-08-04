@@ -166,7 +166,7 @@ def second( -- u8) 2u8 end
 
 **Symbol Not Found**
 
-The compiler could not resolve a referenced type, trait, word, struct, or module.
+The compiler could not resolve a referenced type, word, struct, or module.
 
 **Example**
 
@@ -268,14 +268,14 @@ The current stack does not match the inputs required by an instruction or the ou
 **Example**
 
 ```buyan
-import std.math;
+import std.u8;
 
 module app;
 
 def main( -- u8)
     1u8
     "two"
-    std.math.add
+    std.u8.add
 end
 ```
 
@@ -284,14 +284,14 @@ end
 Make the produced values match the required stack types and order.
 
 ```buyan
-import std.math;
+import std.u8;
 
 module app;
 
 def main( -- u8)
     1u8
     2u8
-    std.math.add
+    std.u8.add
 end
 ```
 

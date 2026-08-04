@@ -9,9 +9,9 @@ fn values() {
     TestExecutor::input((
         "app.by",
         r#"
-        import std.math;
+        import std.u8;
         module app;
-        def main( -- u8) 1u8 2u8 std.math.add end
+        def main( -- u8) 1u8 2u8 std.u8.add end
         "#,
     ))
     .check()
@@ -41,12 +41,12 @@ fn lambdas() {
         "app.by",
         r#"
         import std.cfg;
-        import std.math;
+        import std.u8;
         import std.stack;
         module app;
         def call( -- u8) | -- u8| { 1u8 } std.stack.call end
         def main( -- u8)
-            0u8 1u8 std.math.gt
+            0u8 1u8 std.u8.gt
             | -- u8| { 2u8 }
             | -- u8| { 3u8 }
             std.cfg.if

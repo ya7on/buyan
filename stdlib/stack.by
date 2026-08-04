@@ -6,7 +6,7 @@ def drop<T>(T --) end
 
 // Duplicate the top element on the stack.
 #[builtin]
-def dup<T: Copy>(T -- T, T) end
+def dup<T>(T -- T, T) end
 
 // Swap the top two elements on the stack.
 #[builtin]

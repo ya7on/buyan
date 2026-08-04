@@ -4,7 +4,7 @@ use crate::{
     common::Span,
     error::DiagnosticMessage,
     stages::semantic::{
-        context::{HIRContext, SymbolId, SymbolKind},
+        context::{HIRContext, SymbolId},
         hir::HIRType,
     },
 };
@@ -168,49 +168,6 @@ impl<'a> CallAnalysis<'a> {
     }
 
     fn unify_typevar(&mut self, top: HIRType, expected: SymbolId) -> Result<(), DiagnosticMessage> {
-        let has_required_traits = match self.hir_ctx.get(expected) {
-            Some(SymbolKind::TypeVar {
-                traits: required_traits,
-                ..
-            }) => required_traits.iter().all(|required_trait| match &top {
-                HIRType::BuiltIn(symbol_id) => {
-                    matches!(
-                        self.hir_ctx.get(*symbol_id),
-                        Some(SymbolKind::Type { traits, .. })
-                            if traits.contains(&required_trait.value)
-                    )
-                }
-                HIRType::TypeVar(symbol_id) => {
-                    matches!(
-                        self.hir_ctx.get(*symbol_id),
-                        Some(SymbolKind::TypeVar { traits, .. })
-                            if traits.iter().any(
-                                |available_trait| available_trait.value == required_trait.value
-                        )
-                    )
-                }
-                HIRType::Struct(_) | HIRType::StackVar(_) | HIRType::Lambda { .. } => false,
-            }),
-            _ => false,
-        };
-        if !has_required_traits {
-            return Err(DiagnosticMessage::InvalidStack {
-                label: "trait constraint not satisfied".to_string(),
-                expected_stack: self
-                    .expected_stack_in
-                    .iter()
-                    .map(|item| self.hir_ctx.format_type(item))
-                    .collect(),
-                actual_stack: self
-                    .initial_stack
-                    .iter()
-                    .map(|item| self.hir_ctx.format_type(item))
-                    .collect(),
-                additional_spans: Vec::new(),
-                span: self.span,
-            });
-        }
-
         if let Some(unified) = self.substitution.types.get(&expected) {
             if unified != &top {
                 return Err(DiagnosticMessage::InvalidStack {

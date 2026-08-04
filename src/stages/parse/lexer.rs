@@ -102,8 +102,6 @@ pub enum TokenKind {
 
     #[token("#")]
     Hash,
-    #[token("+")]
-    Plus,
     #[token(";")]
     Semicolon,
     #[token("(")]
@@ -130,8 +128,6 @@ pub enum TokenKind {
     RightBrace,
     #[token("...")]
     Ellipsis,
-    #[token(":")]
-    Colon,
     #[token("|")]
     Pipe,
 }
