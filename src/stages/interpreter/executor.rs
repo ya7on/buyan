@@ -27,6 +27,7 @@ impl IRValue {
             IRConstant::Bool(value) => Self::Bool(*value),
             IRConstant::U8(value) => Self::U8(*value),
             IRConstant::U16(value) => Self::U16(*value),
+            IRConstant::StaticPtr(address) => Self::U16(*address),
         }
     }
 }

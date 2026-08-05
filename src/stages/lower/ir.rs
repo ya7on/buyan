@@ -44,6 +44,7 @@ pub enum IRConstant {
     Bool(bool),
     U8(u8),
     U16(u16),
+    StaticPtr(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

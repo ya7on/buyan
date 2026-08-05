@@ -553,7 +553,7 @@ impl LowerStage {
                         };
                         basicblock.push(Spanned::new(
                             IRInstruction::PushConstant {
-                                value: IRConstant::U16(address),
+                                value: IRConstant::StaticPtr(address),
                             },
                             instruction.span,
                         ));
