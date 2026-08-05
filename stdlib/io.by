@@ -28,6 +28,7 @@ end
 
 def println(std.str.Str -- )
     print
-    "\n"
-    print
+
+    // newline
+    0x0Au8 std.intrinsics.put_char
 end
