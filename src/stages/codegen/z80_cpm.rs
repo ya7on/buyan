@@ -29,7 +29,7 @@ impl Z80CpmCodegenStage {
         println!("{}:", Self::word_label(word.word_id));
         for (block_id, block) in word.blocks.iter().enumerate() {
             println!("{}_bb{}:", Self::word_label(word.word_id), block_id);
-            for instruction in &block.instructions {
+            for (instruction_index, instruction) in block.instructions.iter().enumerate() {
                 match &instruction.value {
                     IRInstruction::PushConstant { value } => match value {
                         IRConstant::U8(value) => {
@@ -132,7 +132,17 @@ impl Z80CpmCodegenStage {
                         println!("\tld de, {size}");
                         println!("\tadd ix, de");
                     }
-                    IRInstruction::Dup { ty: _ } => todo!(),
+                    IRInstruction::Dup { ty } => {
+                        let size = Self::type_size(ty);
+
+                        println!("\tld de, -{size}");
+                        println!("\tadd ix, de");
+
+                        for byte in 0..size {
+                            println!("\tld a, (ix+{})", size + byte);
+                            println!("\tld (ix+{}), a", byte);
+                        }
+                    }
                     IRInstruction::Swap { lower, upper } => {
                         let lower_size = Self::type_size(lower);
                         let upper_size = Self::type_size(upper);
@@ -194,7 +204,23 @@ impl Z80CpmCodegenStage {
                     IRInstruction::Sub { ty: _ } => todo!(),
                     IRInstruction::Mul { ty: _ } => todo!(),
                     IRInstruction::Div { ty: _ } => todo!(),
-                    IRInstruction::Eq { ty: _ } => todo!(),
+                    IRInstruction::Eq { ty } => match ty {
+                        IRType::U8 => {
+                            let not_equal_label = format!(
+                                "{}_bb{block_id}_eq_u8_{instruction_index}_not_equal",
+                                Self::word_label(word.word_id),
+                            );
+                            println!("\tld a, (ix+1)");
+                            println!("\tcp (ix+0)");
+                            println!("\tld a, 0");
+                            println!("\tjr nz, {not_equal_label}");
+                            println!("\tinc a");
+                            println!("{not_equal_label}:");
+                            println!("\tld (ix+1), a");
+                            println!("\tinc ix");
+                        }
+                        _ => todo!(),
+                    },
                     IRInstruction::Gt { ty: _ } => todo!(),
                     IRInstruction::Lt { ty } => match ty {
                         IRType::U8 => {
