@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
 use ariadne::{Color, Label, Report, ReportKind};
 use buyan::{
@@ -123,13 +123,27 @@ fn main() {
     print_errors(&pipeline.context, &pipeline.diagnostics.items);
 
     let diagnostic_count = pipeline.diagnostics.items.len();
-    let pipeline = match args.target {
-        Target::Interpreter => pipeline.stage(IRInterpreter::default()),
-        Target::Z80UnknownCpm => pipeline.stage(Z80CpmCodegenStage),
-    };
+    match args.target {
+        Target::Interpreter => {
+            let pipeline = pipeline.stage(IRInterpreter::default());
+            print_errors(
+                &pipeline.context,
+                &pipeline.diagnostics.items[diagnostic_count..],
+            );
+        }
+        Target::Z80UnknownCpm => {
+            let pipeline = pipeline.stage(Z80CpmCodegenStage);
+            print_errors(
+                &pipeline.context,
+                &pipeline.diagnostics.items[diagnostic_count..],
+            );
 
-    print_errors(
-        &pipeline.context,
-        &pipeline.diagnostics.items[diagnostic_count..],
-    );
+            if let Ok(source) = pipeline.dump() {
+                let mut stdout = std::io::stdout().lock();
+                if let Err(error) = stdout.write_all(source.as_bytes()) {
+                    eprintln!("failed to write assembly source: {error}");
+                }
+            }
+        }
+    }
 }

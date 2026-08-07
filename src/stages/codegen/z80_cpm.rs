@@ -1,3 +1,13 @@
+use super::assembler::{
+    emitter::Emitter,
+    z80::{
+        assembly::Z80Assembly,
+        builder::Z80,
+        condition::Z80Condition,
+        operand::{Z80Immediate, Z80Label, Z80Operand},
+        register::Z80Register,
+    },
+};
 use crate::{
     common::CompileContext,
     error::{DiagnosticMessage, Diagnostics},
@@ -12,8 +22,8 @@ use crate::{
 pub struct Z80CpmCodegenStage;
 
 impl Z80CpmCodegenStage {
-    fn word_label(word_id: WordId) -> String {
-        format!("__word_{}", word_id.id())
+    fn word_label(word_id: WordId) -> Z80Label {
+        Z80Label::new(format!("__word_{}", word_id.id()))
     }
 
     fn type_size(ty: &IRType) -> usize {
@@ -24,48 +34,79 @@ impl Z80CpmCodegenStage {
         }
     }
 
-    fn emit_word(ir_ctx: &IRContext, word: &IRWord) -> Result<(), DiagnosticMessage> {
-        println!("; {}", word.name);
-        println!("{}:", Self::word_label(word.word_id));
+    fn block_label(word_id: WordId, block_id: usize) -> Z80Label {
+        Z80Label::new(format!("{}_bb{block_id}", Self::word_label(word_id)))
+    }
+
+    fn emit_word(
+        emitter: &mut Emitter<Z80Assembly>,
+        ir_ctx: &IRContext,
+        word: &IRWord,
+    ) -> Result<(), DiagnosticMessage> {
+        emitter.emit(Z80::comment(&word.name));
+        emitter.emit(Z80::label(Self::word_label(word.word_id)));
         for (block_id, block) in word.blocks.iter().enumerate() {
-            println!("{}_bb{}:", Self::word_label(word.word_id), block_id);
+            emitter.emit(Z80::label(Self::block_label(word.word_id, block_id)));
             for (instruction_index, instruction) in block.instructions.iter().enumerate() {
                 match &instruction.value {
                     IRInstruction::PushConstant { value } => match value {
                         IRConstant::U8(value) => {
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), {value}");
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Immediate((*value).into()),
+                            ));
                         }
                         IRConstant::Bool(value) => {
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), {}", i32::from(*value));
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Immediate(isize::from(*value)),
+                            ));
                         }
                         IRConstant::U16(value) => {
-                            println!("\tld hl, {value}");
-                            println!("\tld a, h");
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), a");
-                            println!("\tld a, l");
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), a");
+                            emitter.emit(Z80::ld(Z80Register::HL, Z80Immediate(*value as isize)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::H));
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::L));
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
+                            ));
                         }
                         IRConstant::StaticPtr(offset) => {
-                            println!("\tld hl, __static_data+{offset}");
-                            println!("\tld a, h");
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), a");
-                            println!("\tld a, l");
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), a");
+                            emitter.emit(Z80::ld(
+                                Z80Register::HL,
+                                Z80Operand::label_offset(
+                                    Z80Label::new("__static_data"),
+                                    *offset as isize,
+                                ),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::H));
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::L));
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
+                            ));
                         }
                     },
                     IRInstruction::PushLambda { word_id: _ } => todo!(),
                     IRInstruction::CallDirect { word_id } => {
-                        println!("\tcall {}", Self::word_label(*word_id));
+                        emitter.emit(Z80::call(Self::word_label(*word_id)));
                     }
                     IRInstruction::CallIndirect => todo!(),
-                    IRInstruction::Pack { type_id: _ } => {}
-                    IRInstruction::Unpack { type_id: _ } => {}
+                    IRInstruction::Pack { type_id: _ } | IRInstruction::Unpack { type_id: _ } => {}
                     IRInstruction::GetField {
                         type_id,
                         field_index,
@@ -94,53 +135,104 @@ impl Z80CpmCodegenStage {
 
                         let destination_offset = struct_size - field_size;
                         for byte in (0..field_size).rev() {
-                            println!("\tld a, (ix+{})", above_size + byte);
-                            println!("\tld (ix+{}), a", destination_offset + byte);
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, (above_size + byte) as isize),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(
+                                    Z80Register::IX,
+                                    (destination_offset + byte) as isize,
+                                ),
+                                Z80Register::A,
+                            ));
                         }
 
                         if destination_offset != 0 {
-                            println!("\tld de, {destination_offset}");
-                            println!("\tadd ix, de");
+                            emitter.emit(Z80::ld(
+                                Z80Register::DE,
+                                Z80Immediate(destination_offset as isize),
+                            ));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                         }
                     }
                     IRInstruction::Load => {
-                        println!("\tld e, (ix+0)");
-                        println!("\tld d, (ix+1)");
-                        println!("\tld a, (de)");
-                        println!("\tld (ix+1), a");
-                        println!("\tinc ix");
+                        emitter.emit(Z80::ld(
+                            Z80Register::E,
+                            Z80Operand::indexed(Z80Register::IX, 0),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Register::D,
+                            Z80Operand::indexed(Z80Register::IX, 1),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Register::A,
+                            Z80Operand::indirect(Z80Register::DE),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Operand::indexed(Z80Register::IX, 1),
+                            Z80Register::A,
+                        ));
+                        emitter.emit(Z80::inc(Z80Register::IX));
                     }
                     IRInstruction::Store => {
-                        println!("\tld a, (ix+0)");
-                        println!("\tld e, (ix+1)");
-                        println!("\tld d, (ix+2)");
-                        println!("\tld (de), a");
-                        println!("\tld de, 3");
-                        println!("\tadd ix, de");
+                        emitter.emit(Z80::ld(
+                            Z80Register::A,
+                            Z80Operand::indexed(Z80Register::IX, 0),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Register::E,
+                            Z80Operand::indexed(Z80Register::IX, 1),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Register::D,
+                            Z80Operand::indexed(Z80Register::IX, 2),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Operand::indirect(Z80Register::DE),
+                            Z80Register::A,
+                        ));
+                        emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(3)));
+                        emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                     }
                     IRInstruction::Cast { from, to } => match (from, to) {
                         (IRType::U8, IRType::U16) => {
-                            println!("\tld a, (ix+0)");
-                            println!("\tdec ix");
-                            println!("\tld (ix+0), a");
-                            println!("\tld (ix+1), 0");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::dec(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Immediate(0),
+                            ));
                         }
                         _ => todo!(),
                     },
                     IRInstruction::Drop { ty } => {
                         let size = Self::type_size(ty);
-                        println!("\tld de, {size}");
-                        println!("\tadd ix, de");
+                        emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(size as isize)));
+                        emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                     }
                     IRInstruction::Dup { ty } => {
                         let size = Self::type_size(ty);
 
-                        println!("\tld de, -{size}");
-                        println!("\tadd ix, de");
+                        emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(-(size as isize))));
+                        emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
 
                         for byte in 0..size {
-                            println!("\tld a, (ix+{})", size + byte);
-                            println!("\tld (ix+{}), a", byte);
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, (size + byte) as isize),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, byte as isize),
+                                Z80Register::A,
+                            ));
                         }
                     }
                     IRInstruction::Swap { lower, upper } => {
@@ -148,56 +240,107 @@ impl Z80CpmCodegenStage {
                         let upper_size = Self::type_size(upper);
 
                         for byte in 0..upper_size {
-                            println!("\tld a, (ix+{byte})");
-                            println!("\tpush af");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, byte as isize),
+                            ));
+                            emitter.emit(Z80::push(Z80Register::AF));
                         }
 
                         for byte in 0..lower_size {
-                            println!("\tld a, (ix+{})", upper_size + byte);
-                            println!("\tld (ix+{byte}), a");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, (upper_size + byte) as isize),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, byte as isize),
+                                Z80Register::A,
+                            ));
                         }
 
                         for byte in (0..upper_size).rev() {
-                            println!("\tpop af");
-                            println!("\tld (ix+{}), a", lower_size + byte);
+                            emitter.emit(Z80::pop(Z80Register::AF));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, (lower_size + byte) as isize),
+                                Z80Register::A,
+                            ));
                         }
                     }
                     IRInstruction::Over { lower, upper } => {
                         let lower_size = Self::type_size(lower);
                         let upper_size = Self::type_size(upper);
 
-                        println!("\tld de, -{lower_size}");
-                        println!("\tadd ix, de");
+                        emitter.emit(Z80::ld(
+                            Z80Register::DE,
+                            Z80Immediate(-(lower_size as isize)),
+                        ));
+                        emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
 
                         let source_offset = lower_size + upper_size;
                         for byte in 0..lower_size {
-                            println!("\tld a, (ix+{})", source_offset + byte);
-                            println!("\tld (ix+{}), a", byte);
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(
+                                    Z80Register::IX,
+                                    (source_offset + byte) as isize,
+                                ),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, byte as isize),
+                                Z80Register::A,
+                            ));
                         }
                     }
                     IRInstruction::Add { ty } => match ty {
                         IRType::U8 => {
-                            println!("\tld a, (ix+0)");
-                            println!("\tinc ix");
-                            println!("\tadd a, (ix+0)");
-                            println!("\tld (ix+0), a");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
+                            emitter.emit(Z80::add(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
+                            ));
                         }
                         IRType::U16 => {
-                            println!("\tld a, (ix+0)");
-                            println!("\tld e, a");
-                            println!("\tld a, (ix+1)");
-                            println!("\tld d, a");
-                            println!("\tld a, (ix+2)");
-                            println!("\tld l, a");
-                            println!("\tld a, (ix+3)");
-                            println!("\tld h, a");
-                            println!("\tadd hl, de");
-                            println!("\tld a, l");
-                            println!("\tld (ix+2), a");
-                            println!("\tld a, h");
-                            println!("\tld (ix+3), a");
-                            println!("\tld de, 2");
-                            println!("\tadd ix, de");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::E, Z80Register::A));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::D, Z80Register::A));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::L, Z80Register::A));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::H, Z80Register::A));
+                            emitter.emit(Z80::add(Z80Register::HL, Z80Register::DE));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::L));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::H));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(2)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                         }
                         _ => todo!(),
                     },
@@ -210,64 +353,82 @@ impl Z80CpmCodegenStage {
                                 "{}_bb{block_id}_eq_u8_{instruction_index}_not_equal",
                                 Self::word_label(word.word_id),
                             );
-                            println!("\tld a, (ix+1)");
-                            println!("\tcp (ix+0)");
-                            println!("\tld a, 0");
-                            println!("\tjr nz, {not_equal_label}");
-                            println!("\tinc a");
-                            println!("{not_equal_label}:");
-                            println!("\tld (ix+1), a");
-                            println!("\tinc ix");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 0)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::jr(
+                                Z80Condition::Nz,
+                                Z80Label::new(not_equal_label.clone()),
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::A));
+                            emitter.emit(Z80::label(Z80Label::new(not_equal_label)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
                         }
                         _ => todo!(),
                     },
                     IRInstruction::Gt { ty: _ } => todo!(),
                     IRInstruction::Lt { ty } => match ty {
                         IRType::U8 => {
-                            println!("\tld a, (ix+1)");
-                            println!("\tsub (ix+0)");
-                            println!("\tld a, 0");
-                            println!("\tsbc a, a");
-                            println!("\tand 1");
-                            println!("\tld (ix+1), a");
-                            println!("\tinc ix");
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::sub(Z80Operand::indexed(Z80Register::IX, 0)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::sbc(Z80Register::A, Z80Register::A));
+                            emitter.emit(Z80::and(Z80Immediate(1)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
                         }
                         _ => todo!(),
                     },
                     IRInstruction::PutChar => {
-                        println!("\tld e, (ix+0)");
-                        println!("\tinc ix");
-                        println!("\tld c, 2");
-                        println!("\tcall 5");
+                        emitter.emit(Z80::ld(
+                            Z80Register::E,
+                            Z80Operand::indexed(Z80Register::IX, 0),
+                        ));
+                        emitter.emit(Z80::inc(Z80Register::IX));
+                        emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(2)));
+                        emitter.emit(Z80::call(Z80Immediate(5)));
                     }
                 }
-                println!(" ");
             }
 
             match block.terminator.value {
                 IRTerminator::End => {
-                    println!("\tret");
+                    emitter.emit(Z80::ret());
                 }
                 IRTerminator::Branch { branch } => {
-                    println!("\tjp {}_bb{}", Self::word_label(word.word_id), branch.0);
+                    emitter.emit(Z80::jp(None, Self::block_label(word.word_id, branch.0)));
                 }
                 IRTerminator::BranchIfZero {
                     then_branch,
                     else_branch,
                 } => {
-                    println!("\tld a, (ix+0)");
-                    println!("\tinc ix");
-                    println!("\tor a");
-                    println!(
-                        "\tjp nz, {}_bb{}",
-                        Self::word_label(word.word_id),
-                        then_branch.0
-                    );
-                    println!(
-                        "\tjp {}_bb{}",
-                        Self::word_label(word.word_id),
-                        else_branch.0
-                    );
+                    emitter.emit(Z80::ld(
+                        Z80Register::A,
+                        Z80Operand::indexed(Z80Register::IX, 0),
+                    ));
+                    emitter.emit(Z80::inc(Z80Register::IX));
+                    emitter.emit(Z80::or(Z80Register::A));
+                    emitter.emit(Z80::jp(
+                        Some(Z80Condition::Nz),
+                        Self::block_label(word.word_id, then_branch.0),
+                    ));
+                    emitter.emit(Z80::jp(
+                        None,
+                        Self::block_label(word.word_id, else_branch.0),
+                    ));
                 }
             }
         }
@@ -278,7 +439,7 @@ impl Z80CpmCodegenStage {
 
 impl Stage<CompileContext> for Z80CpmCodegenStage {
     type Input = (IRContext, IRProgram);
-    type Output = ();
+    type Output = String;
 
     fn execute(
         &mut self,
@@ -286,32 +447,33 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         _: &mut CompileContext,
     ) -> StageResult<Self::Output> {
         let Some(entrypoint) = ir_program.words.iter().find(|word| word.entrypoint) else {
-            return StageResult::success(());
+            return StageResult::success(String::new());
         };
 
-        println!("ORG 0x100");
-        println!("start:");
-        println!("\tld ix, __data_stack_end");
-        println!("\tcall {}", Self::word_label(entrypoint.word_id));
-        println!("\tld c, 0");
-        println!("\tcall 5");
+        let mut emitter = Emitter::<Z80Assembly>::default();
+        emitter.emit(Z80::org(0x100));
+        emitter.emit(Z80::label(Z80Label::new("start")));
+        emitter.emit(Z80::ld(Z80Register::IX, Z80Label::new("__data_stack_end")));
+        emitter.emit(Z80::call(Self::word_label(entrypoint.word_id)));
+        emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(0)));
+        emitter.emit(Z80::call(Z80Immediate(5)));
 
         let mut diagnostics = Diagnostics::default();
         for word in &ir_program.words {
-            if let Err(error) = Self::emit_word(&ir_ctx, word) {
+            if let Err(error) = Self::emit_word(&mut emitter, &ir_ctx, word) {
                 diagnostics.emit_fatal(error);
                 return StageResult::new(None, diagnostics);
             }
         }
 
-        println!("__static_data:");
+        emitter.emit(Z80::label(Z80Label::new("__static_data")));
         for byte in &ir_program.static_data {
-            println!("\tdb {byte}");
+            emitter.emit(Z80::db(*byte));
         }
-        println!("__data_stack:");
-        println!("\tdefs 256");
-        println!("__data_stack_end:");
+        emitter.emit(Z80::label(Z80Label::new("__data_stack")));
+        emitter.emit(Z80::defs(256));
+        emitter.emit(Z80::label(Z80Label::new("__data_stack_end")));
 
-        StageResult::new(Some(()), diagnostics)
+        StageResult::new(Some(emitter.finish()), diagnostics)
     }
 }
