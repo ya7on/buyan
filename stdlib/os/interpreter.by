@@ -3,3 +3,7 @@ module std.os.interpreter;
 #[target = "interpreter"]
 #[extern = "put_char"]
 def put_char(u8 -- ) end
+
+#[target = "interpreter"]
+#[extern = "read_char"]
+def read_char( -- u8) end

@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Read, Write};
 
 use crate::{
     common::CompileContext,
@@ -119,6 +119,13 @@ impl IRInterpreter {
                         std::io::stdout().write_all(&[value]).map_err(|_| {
                             DiagnosticMessage::RuntimeError("failed to write output")
                         })?;
+                    }
+                    "read_char" => {
+                        let mut value = [0];
+                        std::io::stdin()
+                            .read_exact(&mut value)
+                            .map_err(|_| DiagnosticMessage::RuntimeError("failed to read input"))?;
+                        self.stack.push(IRValue::U8(value[0]));
                     }
                     _ => {
                         return Err(DiagnosticMessage::RuntimeError(

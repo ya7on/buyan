@@ -9,16 +9,6 @@ import std.os.cpm;
 
 module std.io;
 
-#[target = "interpreter"]
-def put_char(u8 -- )
-    std.os.interpreter.put_char
-end
-
-#[target = "z80-unknown-cpm"]
-def put_char(u8 -- )
-    std.os.cpm.c_write
-end
-
 def print(std.str.Str -- )
     0u8
     | std.str.Str, u8 -- std.str.Str, u8, bool | {
@@ -31,7 +21,7 @@ def print(std.str.Str -- )
     | std.str.Str, u8 -- std.str.Str, u8 | {
         std.stack.over std.stack.over               // Str u8 Str u8
         std.str.get                                 // Str u8 u8
-        put_char                     // Str u8
+        _put_char                                   // Str u8
 
         1u8 std.u8.add
     }
@@ -43,4 +33,32 @@ def println(std.str.Str -- )
     print
 
     "\n" print
+end
+
+def input( -- u8)
+    _read_char
+end
+
+/// interpreter specific
+
+#[target = "interpreter"]
+def _put_char(u8 -- )
+    std.os.interpreter.put_char
+end
+
+#[target = "interpreter"]
+def _read_char( -- u8)
+    std.os.interpreter.read_char
+end
+
+/// Z80 CP/M specific
+
+#[target = "z80-unknown-cpm"]
+def _put_char(u8 -- )
+    std.os.cpm.c_write
+end
+
+#[target = "z80-unknown-cpm"]
+def _read_char( -- u8)
+    std.os.cpm.c_read
 end
