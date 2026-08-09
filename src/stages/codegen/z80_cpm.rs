@@ -105,6 +105,19 @@ impl Z80CpmCodegenStage {
                     IRInstruction::CallDirect { word_id } => {
                         emitter.emit(Z80::call(Self::word_label(*word_id)));
                     }
+                    IRInstruction::CallExtern { symbol } => {
+                        let mut characters = symbol.bytes();
+                        if !matches!(characters.next(), Some(b'A'..=b'Z' | b'a'..=b'z' | b'_'))
+                            || !characters.all(|character| {
+                                matches!(character, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_')
+                            })
+                        {
+                            return Err(DiagnosticMessage::Unknown {
+                                label: format!("invalid Z80 external symbol '{symbol}'"),
+                            });
+                        }
+                        emitter.emit(Z80::call(Z80Label::new(symbol.clone())));
+                    }
                     IRInstruction::CallIndirect => todo!(),
                     IRInstruction::Pack { type_id: _ } | IRInstruction::Unpack { type_id: _ } => {}
                     IRInstruction::GetField {
@@ -209,6 +222,17 @@ impl Z80CpmCodegenStage {
                             emitter.emit(Z80::ld(
                                 Z80Operand::indexed(Z80Register::IX, 1),
                                 Z80Immediate(0),
+                            ));
+                        }
+                        (IRType::U16, IRType::U8) => {
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                                Z80Register::A,
                             ));
                         }
                         _ => todo!(),
@@ -457,6 +481,33 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         emitter.emit(Z80::call(Self::word_label(entrypoint.word_id)));
         emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(0)));
         emitter.emit(Z80::call(Z80Immediate(5)));
+
+        emitter.emit(Z80::label(Z80Label::new("bdos_call")));
+        emitter.emit(Z80::ld(
+            Z80Register::C,
+            Z80Operand::indexed(Z80Register::IX, 0),
+        ));
+        emitter.emit(Z80::ld(
+            Z80Register::E,
+            Z80Operand::indexed(Z80Register::IX, 1),
+        ));
+        emitter.emit(Z80::ld(
+            Z80Register::D,
+            Z80Operand::indexed(Z80Register::IX, 2),
+        ));
+        emitter.emit(Z80::push(Z80Register::IX));
+        emitter.emit(Z80::call(Z80Immediate(5)));
+        emitter.emit(Z80::pop(Z80Register::IX));
+        emitter.emit(Z80::ld(
+            Z80Operand::indexed(Z80Register::IX, 1),
+            Z80Register::L,
+        ));
+        emitter.emit(Z80::ld(
+            Z80Operand::indexed(Z80Register::IX, 2),
+            Z80Register::H,
+        ));
+        emitter.emit(Z80::inc(Z80Register::IX));
+        emitter.emit(Z80::ret());
 
         let mut diagnostics = Diagnostics::default();
         for word in &ir_program.words {

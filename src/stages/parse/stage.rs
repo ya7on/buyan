@@ -169,6 +169,16 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                                 queue.push(module);
                             }
                         }
+                        "std.os.cpm" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/os/cpm.by"),
+                                content: include_str!("../../../stdlib/os/cpm.by").to_string(),
+                                name: "std.os.cpm".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
                         _ => {
                             diagnostics.emit_fatal(DiagnosticMessage::ImportError {
                                 path: import.to_string(),

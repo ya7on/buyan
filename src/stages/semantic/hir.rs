@@ -38,6 +38,7 @@ pub struct HIRWordSignature {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HIRWordAttribute {
     BuiltIn,
+    Extern { symbol: String },
 }
 
 #[derive(Debug, Clone)]

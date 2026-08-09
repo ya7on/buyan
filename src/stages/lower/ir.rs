@@ -61,6 +61,7 @@ pub enum IRInstruction {
     PushConstant { value: IRConstant },
     PushLambda { word_id: WordId },
     CallDirect { word_id: WordId },
+    CallExtern { symbol: String },
     CallIndirect,
     Pack { type_id: TypeId },
     Unpack { type_id: TypeId },

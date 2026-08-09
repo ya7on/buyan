@@ -107,6 +107,11 @@ impl IRInterpreter {
                 IRInstruction::CallDirect { word_id } => {
                     self.execute_word(program, *word_id)?;
                 }
+                IRInstruction::CallExtern { symbol: _ } => {
+                    return Err(DiagnosticMessage::RuntimeError(
+                        "cannot execute an external word in interpreter",
+                    ));
+                }
                 IRInstruction::CallIndirect => {
                     let lambda = self
                         .stack
@@ -214,6 +219,9 @@ impl IRInterpreter {
                     match (from, to, value) {
                         (IRType::U8, IRType::U16, IRValue::U8(value)) => {
                             self.stack.push(IRValue::U16(u16::from(value)));
+                        }
+                        (IRType::U16, IRType::U8, IRValue::U16(value)) => {
+                            self.stack.push(IRValue::U8(value as u8));
                         }
                         _ => return Err(DiagnosticMessage::RuntimeError("invalid cast")),
                     }

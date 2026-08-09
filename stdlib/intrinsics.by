@@ -43,6 +43,9 @@ def put_char(u8 -- ) end
 def u8_to_u16(u8 -- u16) end
 
 #[builtin]
+def u16_to_u8(u16 -- u8) end
+
+#[builtin]
 def offset(ptr, u16 -- ptr) end
 
 #[builtin]

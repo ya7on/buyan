@@ -4,6 +4,8 @@ module std.u16;
 
 def from_u8(u8 -- u16) std.intrinsics.u8_to_u16 end
 
+def low_u8(u16 -- u8) std.intrinsics.u16_to_u8 end
+
 def add(u16, u16 -- u16) std.intrinsics.add end
 
 def sub(u16, u16 -- u16) std.intrinsics.sub end

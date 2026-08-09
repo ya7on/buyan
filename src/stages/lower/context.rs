@@ -35,6 +35,7 @@ pub struct WordIRInfo {
 #[derive(Debug, Default)]
 pub struct IRContext {
     pub words: Vec<WordIRInfo>,
+    pub external_symbols: HashMap<SymbolId, String>,
     pub symbol_id_to_type_id: HashMap<SymbolId, TypeId>,
     pub types: Vec<IRType>,
 }
@@ -65,6 +66,10 @@ impl IRContext {
         self.types.push(ty);
         self.symbol_id_to_type_id.insert(symbol_id, type_id);
         Some(type_id)
+    }
+
+    pub fn register_external_symbol(&mut self, symbol_id: SymbolId, symbol: String) {
+        self.external_symbols.insert(symbol_id, symbol);
     }
 
     #[must_use]

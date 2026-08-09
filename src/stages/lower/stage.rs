@@ -75,6 +75,15 @@ impl LowerStage {
                     symbol_id,
                     type_args,
                 } => {
+                    if let Some(symbol) = ir_ctx.external_symbols.get(symbol_id) {
+                        basicblock.push(Spanned::new(
+                            IRInstruction::CallExtern {
+                                symbol: symbol.clone(),
+                            },
+                            instruction.span,
+                        ));
+                        continue;
+                    }
                     let Some(concrete_type_args) = type_args
                         .iter()
                         .map(|ty| substitute_type(ty, substitutions))
@@ -316,6 +325,15 @@ impl LowerStage {
                                 IRInstruction::Cast {
                                     from: IRType::U8,
                                     to: IRType::U16,
+                                },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.u16_to_u8" => {
+                            basicblock.push(Spanned::new(
+                                IRInstruction::Cast {
+                                    from: IRType::U16,
+                                    to: IRType::U8,
                                 },
                                 instruction.span,
                             ));

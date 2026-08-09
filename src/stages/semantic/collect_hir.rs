@@ -338,29 +338,7 @@ impl CollectHIRStage {
         word: &ASTWord,
         hir_ctx: &HIRContext,
     ) -> Result<HIRWord, DiagnosticMessage> {
-        let mut attributes = Vec::with_capacity(word.attributes.len());
-        for attribute in &word.attributes {
-            match (
-                attribute.value.name.as_str(),
-                attribute.value.value.as_deref(),
-            ) {
-                ("builtin", None) => attributes.push(HIRWordAttribute::BuiltIn),
-                ("builtin", Some(_)) => {
-                    return Err(DiagnosticMessage::InvalidAttribute {
-                        name: attribute.value.name.clone(),
-                        reason: "this attribute does not accept a value".to_string(),
-                        span: attribute.span,
-                    });
-                }
-                _ => {
-                    return Err(DiagnosticMessage::InvalidAttribute {
-                        name: attribute.value.name.clone(),
-                        reason: "this attribute is not supported".to_string(),
-                        span: attribute.span,
-                    });
-                }
-            }
-        }
+        let attributes = Self::analyze_word_attributes(word)?;
 
         let fullpath = module.name.append(&word.name);
         let word_id =
@@ -390,33 +368,60 @@ impl CollectHIRStage {
             });
         };
 
-        let mut stack_analysis = StackAnalysis::new(
-            hir_ctx,
-            stack_in.iter().map(|item| &item.value).cloned().collect(),
-        );
-        let mut body = Vec::with_capacity(word.body.len());
-        for instruction in &word.body {
-            body.push(Spanned::new(
-                Self::analyze_instruction(module, word, instruction, hir_ctx, &mut stack_analysis)?,
-                instruction.span,
-            ));
-        }
-
-        if !attributes.contains(&HIRWordAttribute::BuiltIn) {
-            let expected_stack = stack_out
-                .iter()
-                .map(|item| &item.value)
-                .cloned()
-                .collect::<Vec<_>>();
-            stack_analysis.match_stack(
-                &expected_stack,
-                word.stack_effect.span,
-                body.last()
-                    .map(|instruction| instruction.span)
-                    .into_iter()
-                    .collect(),
-            )?;
-        }
+        let is_external = attributes
+            .iter()
+            .any(|attribute| matches!(attribute, HIRWordAttribute::Extern { .. }));
+        let body = if is_external {
+            if !word.body.is_empty() {
+                return Err(DiagnosticMessage::InvalidAttribute {
+                    name: "extern".to_string(),
+                    reason: "an external word cannot have a body".to_string(),
+                    span: word.name.span,
+                });
+            }
+            if *entrypoint {
+                return Err(DiagnosticMessage::InvalidAttribute {
+                    name: "extern".to_string(),
+                    reason: "an external word cannot be an entrypoint".to_string(),
+                    span: word.name.span,
+                });
+            }
+            Vec::new()
+        } else {
+            let mut stack_analysis = StackAnalysis::new(
+                hir_ctx,
+                stack_in.iter().map(|item| &item.value).cloned().collect(),
+            );
+            let mut body = Vec::with_capacity(word.body.len());
+            for instruction in &word.body {
+                body.push(Spanned::new(
+                    Self::analyze_instruction(
+                        module,
+                        word,
+                        instruction,
+                        hir_ctx,
+                        &mut stack_analysis,
+                    )?,
+                    instruction.span,
+                ));
+            }
+            if !attributes.contains(&HIRWordAttribute::BuiltIn) {
+                let expected_stack = stack_out
+                    .iter()
+                    .map(|item| &item.value)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                stack_analysis.match_stack(
+                    &expected_stack,
+                    word.stack_effect.span,
+                    body.last()
+                        .map(|instruction| instruction.span)
+                        .into_iter()
+                        .collect(),
+                )?;
+            }
+            body
+        };
 
         Ok(HIRWord {
             id: word_id,
@@ -433,6 +438,46 @@ impl CollectHIRStage {
             entrypoint: *entrypoint,
             substitutions: HashMap::new(),
         })
+    }
+
+    fn analyze_word_attributes(word: &ASTWord) -> Result<Vec<HIRWordAttribute>, DiagnosticMessage> {
+        let mut attributes = Vec::with_capacity(word.attributes.len());
+        for attribute in &word.attributes {
+            match (
+                attribute.value.name.as_str(),
+                attribute.value.value.as_deref(),
+            ) {
+                ("builtin", None) => attributes.push(HIRWordAttribute::BuiltIn),
+                ("extern", Some(symbol)) if !symbol.is_empty() => {
+                    attributes.push(HIRWordAttribute::Extern {
+                        symbol: symbol.to_string(),
+                    });
+                }
+                ("builtin", Some(_)) => {
+                    return Err(DiagnosticMessage::InvalidAttribute {
+                        name: attribute.value.name.clone(),
+                        reason: "this attribute does not accept a value".to_string(),
+                        span: attribute.span,
+                    });
+                }
+                ("extern", _) => {
+                    return Err(DiagnosticMessage::InvalidAttribute {
+                        name: attribute.value.name.clone(),
+                        reason: "expected an symbol, for example #[extern = \"symbol_name\"]"
+                            .to_string(),
+                        span: attribute.span,
+                    });
+                }
+                _ => {
+                    return Err(DiagnosticMessage::InvalidAttribute {
+                        name: attribute.value.name.clone(),
+                        reason: "this attribute is not supported".to_string(),
+                        span: attribute.span,
+                    });
+                }
+            }
+        }
+        Ok(attributes)
     }
 
     fn analyze_module(

@@ -1,0 +1,38 @@
+import std.u16;
+import std.stack;
+
+module std.os.cpm;
+
+#[extern = "bdos_call"]
+#[target = "z80-unknown-cpm"]
+def bdos_call(u16, u8 -- u16) end
+
+#[target = "z80-unknown-cpm"]
+def p_termcpm( -- )
+    0x00u16
+    0x00u8
+
+    bdos_call
+
+    std.stack.drop
+end
+
+#[target = "z80-unknown-cpm"]
+def c_read( -- u8)
+    0x00u16
+    0x01u8
+
+    bdos_call
+
+    std.u16.low_u8
+end
+
+#[target = "z80-unknown-cpm"]
+def c_write(u8 -- )
+    std.u16.from_u8
+    0x02u8
+
+    bdos_call
+
+    std.stack.drop
+end

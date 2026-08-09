@@ -65,6 +65,13 @@ fn collect_calls(
                 if word.attributes.contains(&HIRWordAttribute::BuiltIn) {
                     continue;
                 }
+                if word
+                    .attributes
+                    .iter()
+                    .any(|attribute| matches!(attribute, HIRWordAttribute::Extern { .. }))
+                {
+                    continue;
+                }
                 let Some(type_args) = type_args
                     .iter()
                     .map(|ty| substitute_type(ty, substitutions))
@@ -111,6 +118,14 @@ impl Stage<CompileContext> for MonomorphizeStage {
         for module in &hir_program.modules {
             for word in &module.words {
                 words.insert(word.id, word);
+                if let Some(HIRWordAttribute::Extern { symbol }) = word
+                    .attributes
+                    .iter()
+                    .find(|attribute| matches!(attribute, HIRWordAttribute::Extern { .. }))
+                {
+                    ir_ctx.register_external_symbol(word.id, symbol.clone());
+                    continue;
+                }
                 if word.entrypoint
                     && !word.attributes.contains(&HIRWordAttribute::BuiltIn)
                     && let Some(word_id) = ir_ctx.register_word(WordIRInfo {
