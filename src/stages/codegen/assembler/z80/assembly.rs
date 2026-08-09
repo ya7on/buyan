@@ -1,5 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::stages::codegen::assembler::emitter::Assembly;
+
 use super::operand::{Z80Label, Z80Operand};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -34,5 +36,11 @@ impl Display for Z80Assembly {
                 Ok(())
             }
         }
+    }
+}
+
+impl Assembly for Z80Assembly {
+    fn write_to(self, output: &mut String) {
+        output.push_str(&self.to_string());
     }
 }

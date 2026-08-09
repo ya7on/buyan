@@ -1,4 +1,8 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::marker::PhantomData;
+
+pub trait Assembly {
+    fn write_to(self, output: &mut String);
+}
 
 /// Collects assembly source one line at a time.
 #[derive(Debug)]
@@ -16,9 +20,9 @@ impl<A> Default for Emitter<A> {
     }
 }
 
-impl<A: Display> Emitter<A> {
+impl<A: Assembly> Emitter<A> {
     pub fn emit(&mut self, assembly: A) {
-        self.output.push_str(&assembly.to_string());
+        assembly.write_to(&mut self.output);
         self.output.push('\n');
     }
 
