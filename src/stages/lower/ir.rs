@@ -1,5 +1,5 @@
 use crate::{
-    common::Spanned,
+    common::{CompileTarget, Spanned},
     stages::lower::context::{TypeId, WordId},
 };
 
@@ -54,6 +54,20 @@ pub enum IRType {
     U16,
     Struct { fields: Vec<Self> },
     Lambda,
+}
+
+impl IRType {
+    pub(crate) fn from_builtin_type(target: CompileTarget, name: &str) -> Option<Self> {
+        match name {
+            "bool" => Some(Self::Bool),
+            "u8" => Some(Self::U8),
+            "u16" => Some(Self::U16),
+            "ptr" | "usize" => match target {
+                CompileTarget::Interpreter | CompileTarget::Z80UnknownCpm => Some(Self::U16),
+            },
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

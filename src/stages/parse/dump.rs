@@ -48,8 +48,9 @@ fn dump_instruction(buf: &mut String, instruction: &ASTInstruction) -> Result<()
         ASTInstruction::Unpack(name) => write!(buf, "{name}>")?,
         ASTInstruction::Literal(ASTLiteral::Bool(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::String(value)) => write!(buf, "{value}")?,
-        ASTInstruction::Literal(ASTLiteral::U8(value)) => write!(buf, "{value}")?,
-        ASTInstruction::Literal(ASTLiteral::U16(value)) => write!(buf, "{value}")?,
+        ASTInstruction::Literal(ASTLiteral::U8(value)) => write!(buf, "{value}u8")?,
+        ASTInstruction::Literal(ASTLiteral::U16(value)) => write!(buf, "{value}u16")?,
+        ASTInstruction::Literal(ASTLiteral::Usize(value)) => write!(buf, "{value}")?,
         ASTInstruction::Lambda { stack_effect, body } => {
             let mut s = String::new();
             dump_stack_effect(&mut s, stack_effect)?;

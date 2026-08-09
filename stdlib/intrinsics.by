@@ -46,6 +46,18 @@ def u8_to_u16(u8 -- u16) end
 def u16_to_u8(u16 -- u8) end
 
 #[builtin]
+def u8_to_usize(u8 -- usize) end
+
+#[builtin]
+def u16_to_usize(u16 -- usize) end
+
+#[builtin]
+def usize_to_u8(usize -- u8) end
+
+#[builtin]
+def usize_to_u16(usize -- u16) end
+
+#[builtin]
 def offset(ptr, u16 -- ptr) end
 
 #[builtin]

@@ -109,6 +109,16 @@ impl<F: FileSystem> Stage<CompileContext> for ParseStage<F> {
                                 queue.push(module);
                             }
                         }
+                        "std.usize" => {
+                            let module = Module {
+                                absolute: PathBuf::from("stdlib/usize.by"),
+                                content: include_str!("../../../stdlib/usize.by").to_string(),
+                                name: "std.usize".to_string(),
+                            };
+                            if visited.insert(module.absolute.clone()) {
+                                queue.push(module);
+                            }
+                        }
                         "std.bool" => {
                             let module = Module {
                                 absolute: PathBuf::from("stdlib/bool.by"),

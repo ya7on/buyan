@@ -68,6 +68,7 @@ pub enum HIRLiteral {
     Bool(bool),
     U8(u8),
     U16(u16),
+    Usize(u16),
     String { value: String, struct_id: SymbolId },
 }
 

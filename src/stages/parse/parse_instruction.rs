@@ -28,6 +28,7 @@ where
             TokenKind::LiteralString(value) => ASTInstruction::Literal(ASTLiteral::String(value)),
             TokenKind::LiteralU8(value) => ASTInstruction::Literal(ASTLiteral::U8(value)),
             TokenKind::LiteralU16(value) => ASTInstruction::Literal(ASTLiteral::U16(value)),
+            TokenKind::LiteralNumber(value) => ASTInstruction::Literal(ASTLiteral::Usize(value)),
         };
 
         let path = select! {

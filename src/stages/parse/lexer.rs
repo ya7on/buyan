@@ -81,8 +81,9 @@ pub enum TokenKind {
     #[regex("[0-9]+u8", |lex| lex.slice()[..lex.slice().len()-2].parse::<u8>().ok())]
     #[regex(r"0[xX][0-9a-fA-F]+u8", |lex| u8::from_str_radix(&lex.slice()[2..lex.slice().len()-2], 16).ok())]
     LiteralU8(u8),
-    #[regex(r"[0-9]+", |lex| lex.slice().parse::<usize>().ok())]
-    LiteralNumber(usize),
+    #[regex(r"0[xX][0-9a-fA-F]+", |lex| u16::from_str_radix(&lex.slice()[2..], 16).ok())]
+    #[regex(r"[0-9]+", |lex| lex.slice().parse::<u16>().ok())]
+    LiteralNumber(u16),
     #[regex(r#""([^"\\]|\\.)*""#, |lex| unescape_string_literal(lex.slice()))]
     LiteralString(String),
     #[token("true", |_| true)]

@@ -1,5 +1,5 @@
 use crate::{
-    common::{CompileContext, Span, Spanned},
+    common::{CompileContext, CompileTarget, Span, Spanned},
     error::{DiagnosticMessage, Diagnostics},
     pipeline::{Stage, StageResult},
     stages::{
@@ -55,6 +55,7 @@ impl LowerStage {
 
     fn lower_ir_word(
         ir_ctx: &IRContext,
+        target: CompileTarget,
         word_id: WordId,
         name: String,
         body: &[Spanned<HIRInstruction>],
@@ -338,6 +339,34 @@ impl LowerStage {
                                 instruction.span,
                             ));
                         }
+                        "std.intrinsics.u8_to_usize" => match target {
+                            CompileTarget::Interpreter | CompileTarget::Z80UnknownCpm => {
+                                basicblock.push(Spanned::new(
+                                    IRInstruction::Cast {
+                                        from: IRType::U8,
+                                        to: IRType::U16,
+                                    },
+                                    instruction.span,
+                                ));
+                            }
+                        },
+                        "std.intrinsics.u16_to_usize" => match target {
+                            CompileTarget::Interpreter | CompileTarget::Z80UnknownCpm => {}
+                        },
+                        "std.intrinsics.usize_to_u8" => match target {
+                            CompileTarget::Interpreter | CompileTarget::Z80UnknownCpm => {
+                                basicblock.push(Spanned::new(
+                                    IRInstruction::Cast {
+                                        from: IRType::U16,
+                                        to: IRType::U8,
+                                    },
+                                    instruction.span,
+                                ));
+                            }
+                        },
+                        "std.intrinsics.usize_to_u16" => match target {
+                            CompileTarget::Interpreter | CompileTarget::Z80UnknownCpm => {}
+                        },
                         "std.intrinsics.call" => {
                             basicblock
                                 .push(Spanned::new(IRInstruction::CallIndirect, instruction.span));
@@ -543,6 +572,16 @@ impl LowerStage {
                             instruction.span,
                         ));
                     }
+                    HIRLiteral::Usize(value) => match target {
+                        CompileTarget::Interpreter | CompileTarget::Z80UnknownCpm => {
+                            basicblock.push(Spanned::new(
+                                IRInstruction::PushConstant {
+                                    value: IRConstant::U16(*value),
+                                },
+                                instruction.span,
+                            ));
+                        }
+                    },
                     HIRLiteral::String { value, struct_id } => {
                         let Some(address) = u16::try_from(static_data.len()).ok() else {
                             errors.push(DiagnosticMessage::DataIsTooBig {
@@ -648,6 +687,7 @@ impl LowerStage {
 
                     let lambda_word = match Self::lower_ir_word(
                         ir_ctx,
+                        target,
                         word_id,
                         format!("lambda_{}", word_id.id()),
                         body,
@@ -696,7 +736,7 @@ impl Stage<CompileContext> for LowerStage {
     fn execute(
         &mut self,
         (ir_ctx, hir_program): Self::Input,
-        _: &mut CompileContext,
+        context: &mut CompileContext,
     ) -> StageResult<Self::Output> {
         let mut diagnostics = Diagnostics::default();
         let mut result = IRProgram {
@@ -730,6 +770,7 @@ impl Stage<CompileContext> for LowerStage {
                 .collect::<Vec<_>>();
             match Self::lower_ir_word(
                 &ir_ctx,
+                context.target,
                 WordId(index),
                 instance.name.clone(),
                 &word.body,

@@ -99,6 +99,18 @@ impl HIRContext {
                 label: "failed to register built-in type 'ptr'".to_string(),
             })?;
 
+        // usize
+        result
+            .register(
+                &DottedPath::parse("usize"),
+                SymbolKind::Type {
+                    name: "usize".to_string(),
+                },
+            )
+            .ok_or_else(|| DiagnosticMessage::Unknown {
+                label: "failed to register built-in type 'usize'".to_string(),
+            })?;
+
         // u8
         result
             .register(

@@ -65,6 +65,7 @@ pub enum ASTLiteral {
     String(String),
     U8(u8),
     U16(u16),
+    Usize(u16),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

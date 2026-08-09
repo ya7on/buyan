@@ -73,6 +73,7 @@ impl CollectHIRStage {
                     ASTLiteral::Bool(value) => (HIRLiteral::Bool(*value), "bool"),
                     ASTLiteral::U8(value) => (HIRLiteral::U8(*value), "u8"),
                     ASTLiteral::U16(value) => (HIRLiteral::U16(*value), "u16"),
+                    ASTLiteral::Usize(value) => (HIRLiteral::Usize(*value), "usize"),
                     ASTLiteral::String(_) => unreachable!("string literals are handled above"),
                 };
                 let Some(symbol_id) = hir_ctx.lookup(&DottedPath::parse(name)) else {
