@@ -31,7 +31,13 @@ pub struct ASTWord {
     pub body: Vec<Spanned<ASTInstruction>>,
     pub word_vars: Vec<ASTWordVar>,
     pub stack_effect: Spanned<ASTStackEffect>,
-    pub attributes: Vec<Spanned<String>>,
+    pub attributes: Vec<Spanned<ASTWordAttribute>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ASTWordAttribute {
+    pub name: String,
+    pub value: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

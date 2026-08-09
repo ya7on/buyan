@@ -29,15 +29,14 @@ pub struct PipelineBuilder<O, C> {
     pub diagnostics: Diagnostics,
 }
 
-impl<O, C: Default> PipelineBuilder<O, C> {
-    pub fn new(init: O) -> Self {
+impl<O, C> PipelineBuilder<O, C> {
+    pub fn new(init: O, context: C) -> Self {
         Self {
             prev: Some(init),
-            context: C::default(),
+            context,
             diagnostics: Diagnostics::default(),
         }
     }
-
     pub fn stage<T>(mut self, mut stage: T) -> PipelineBuilder<T::Output, C>
     where
         T: Stage<C, Input = O>,

@@ -62,13 +62,50 @@ impl<T: Debug> Deref for Spanned<T> {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum CompileTarget {
+    #[default]
+    Interpreter,
+    Z80UnknownCpm,
+}
+
+impl Display for CompileTarget {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Interpreter => formatter.write_str("interpreter"),
+            Self::Z80UnknownCpm => formatter.write_str("z80-unknown-cpm"),
+        }
+    }
+}
+
+impl TryFrom<&str> for CompileTarget {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "interpreter" => Ok(Self::Interpreter),
+            "z80-unknown-cpm" => Ok(Self::Z80UnknownCpm),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct CompileContext {
     pub sources: HashMap<SourceId, Source>,
+    pub target: CompileTarget,
     source_ids: HashMap<PathBuf, SourceId>,
 }
 
 impl CompileContext {
+    #[must_use]
+    pub fn new(target: CompileTarget) -> Self {
+        Self {
+            target,
+            ..Default::default()
+        }
+    }
+
     pub fn add_source(&mut self, path: PathBuf, content: String) -> SourceId {
         if let Some(source_id) = self.source_ids.get(&path) {
             return *source_id;

@@ -2,7 +2,7 @@ use std::{io::Write, path::PathBuf};
 
 use ariadne::{Color, Label, Report, ReportKind};
 use buyan::{
-    common::CompileContext,
+    common::{CompileContext, CompileTarget},
     error::{Diagnostic, DiagnosticKind},
     fs::RealFileSystem,
     lints::{LintPass, empty_word::EmptyWord, unused_import::UnusedImport},
@@ -11,7 +11,7 @@ use buyan::{
         codegen::z80_cpm::Z80CpmCodegenStage,
         interpreter::executor::IRInterpreter,
         lower::{collect::CollectSymbolsStage, monomorphize::MonomorphizeStage, stage::LowerStage},
-        parse::stage::ParseStage,
+        parse::{filter_target::FilterTargetStage, stage::ParseStage},
         semantic::{collect_hir::CollectHIRStage, collect_names::CollectNamesStage},
     },
 };
@@ -22,6 +22,15 @@ enum Target {
     Interpreter,
     #[value(name = "z80-unknown-cpm")]
     Z80UnknownCpm,
+}
+
+impl Target {
+    const fn compile_target(self) -> CompileTarget {
+        match self {
+            Self::Interpreter => CompileTarget::Interpreter,
+            Self::Z80UnknownCpm => CompileTarget::Z80UnknownCpm,
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -106,19 +115,21 @@ fn print_errors(context: &CompileContext, diagnostics: &[Diagnostic]) {
 fn main() {
     let args = Args::parse();
 
-    let pipeline = PipelineBuilder::new(args.path)
-        .stage(ParseStage::<RealFileSystem>::default())
-        // .stage(DumpAst)
-        .stage(CollectNamesStage)
-        .stage(CollectHIRStage)
-        .stage(
-            LintPass::default()
-                .lint(EmptyWord)
-                .lint(UnusedImport::default()),
-        )
-        .stage(CollectSymbolsStage)
-        .stage(MonomorphizeStage)
-        .stage(LowerStage);
+    let pipeline =
+        PipelineBuilder::new(args.path, CompileContext::new(args.target.compile_target()))
+            .stage(ParseStage::<RealFileSystem>::default())
+            .stage(FilterTargetStage)
+            // .stage(DumpAst)
+            .stage(CollectNamesStage)
+            .stage(CollectHIRStage)
+            .stage(
+                LintPass::default()
+                    .lint(EmptyWord)
+                    .lint(UnusedImport::default()),
+            )
+            .stage(CollectSymbolsStage)
+            .stage(MonomorphizeStage)
+            .stage(LowerStage);
 
     print_errors(&pipeline.context, &pipeline.diagnostics.items);
 

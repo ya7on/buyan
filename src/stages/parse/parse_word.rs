@@ -5,7 +5,7 @@ use chumsky::{
 use crate::{
     common::{SourceSpan, Spanned},
     stages::parse::{
-        ast::{ASTWord, ASTWordVar},
+        ast::{ASTWord, ASTWordAttribute, ASTWordVar},
         lexer::TokenKind,
         parse_instruction::instruction_parser,
         parse_stack_effect::stack_effect_parser,
@@ -18,19 +18,27 @@ pub fn word_parser<'src, I>()
 where
     I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
+    let attribute = select! {
+        TokenKind::Ident(name) => name,
+    }
+    .then(
+        just(TokenKind::Equal)
+            .ignore_then(select! {
+                TokenKind::LiteralString(value) => value,
+            })
+            .or_not(),
+    )
+    .map(|(name, value)| ASTWordAttribute { name, value })
+    .delimited_by(
+        just(TokenKind::LeftSquareBracket),
+        just(TokenKind::RightSquareBracket),
+    );
+
     let attributes = just(TokenKind::Hash)
-        .ignore_then(
-            select! {
-                TokenKind::Ident(name) => name,
-            }
-            .delimited_by(
-                just(TokenKind::LeftSquareBracket),
-                just(TokenKind::RightSquareBracket),
-            ),
-        )
-        .map_with(|name, extra| {
+        .ignore_then(attribute)
+        .map_with(|attribute, extra| {
             let span: SourceSpan = extra.span();
-            Spanned::new(name, span)
+            Spanned::new(attribute, span)
         });
 
     let word_name = select! {

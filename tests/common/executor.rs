@@ -14,6 +14,7 @@ use buyan::{
         },
         parse::{
             ast::{ASTModule, ASTProgram},
+            filter_target::FilterTargetStage,
             lexer::TokenKind,
             stage::ParseStage,
         },
@@ -68,12 +69,13 @@ impl TestExecutor {
     }
 
     pub fn check(mut self) -> Self {
-        let pipeline = PipelineBuilder::new(PathBuf::from("app.by"));
+        let pipeline = PipelineBuilder::new(PathBuf::from("app.by"), Default::default());
         let pipeline = pipeline.stage(ParseStage {
             file_loader: TestFilesystem {
                 files: self.inputs.clone(),
             },
         });
+        let pipeline = pipeline.stage(FilterTargetStage);
         self.ast = Some(pipeline.dump().cloned().map_err(|err| err.clone()));
         let pipeline = pipeline.stage(CollectNamesStage).stage(CollectHIRStage);
         self.hir = Some(

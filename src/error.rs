@@ -67,6 +67,7 @@ pub enum DiagnosticMessage {
     },
     InvalidAttribute {
         name: String,
+        reason: String,
         span: Span,
     },
     SymbolAlreadyExists {
@@ -230,8 +231,8 @@ impl DiagnosticMessage {
                 "the syntax is not valid here".to_string()
             }
             Self::ParseError { label, .. } => format!("expected {}", label.join(" or ")),
-            Self::InvalidAttribute { name, .. } => {
-                format!("attribute '{name}' is not supported")
+            Self::InvalidAttribute { name, reason, .. } => {
+                format!("attribute '{name}' is invalid: {reason}")
             }
             Self::SymbolAlreadyExists { name, .. } => {
                 format!("symbol '{name}' is already defined")

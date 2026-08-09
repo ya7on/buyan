@@ -102,6 +102,8 @@ pub enum TokenKind {
 
     #[token("#")]
     Hash,
+    #[token("=")]
+    Equal,
     #[token(";")]
     Semicolon,
     #[token("(")]

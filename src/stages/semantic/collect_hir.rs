@@ -340,11 +340,22 @@ impl CollectHIRStage {
     ) -> Result<HIRWord, DiagnosticMessage> {
         let mut attributes = Vec::with_capacity(word.attributes.len());
         for attribute in &word.attributes {
-            match attribute.value.as_str() {
-                "builtin" => attributes.push(HIRWordAttribute::BuiltIn),
+            match (
+                attribute.value.name.as_str(),
+                attribute.value.value.as_deref(),
+            ) {
+                ("builtin", None) => attributes.push(HIRWordAttribute::BuiltIn),
+                ("builtin", Some(_)) => {
+                    return Err(DiagnosticMessage::InvalidAttribute {
+                        name: attribute.value.name.clone(),
+                        reason: "this attribute does not accept a value".to_string(),
+                        span: attribute.span,
+                    });
+                }
                 _ => {
                     return Err(DiagnosticMessage::InvalidAttribute {
-                        name: attribute.value.clone(),
+                        name: attribute.value.name.clone(),
+                        reason: "this attribute is not supported".to_string(),
                         span: attribute.span,
                     });
                 }
