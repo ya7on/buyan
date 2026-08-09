@@ -14,42 +14,34 @@ impl FilterTargetStage {
         target: CompileTarget,
         diagnostics: &mut Diagnostics,
     ) -> Option<ASTWord> {
-        let target_attributes = word
+        let targets = word
             .attributes
             .iter()
             .filter(|attribute| attribute.value.name == "target")
-            .collect::<Vec<_>>();
-
-        let Some(attribute) = target_attributes.first() else {
-            return Some(word);
-        };
-        if target_attributes.len() > 1 {
-            diagnostics.emit_fatal(DiagnosticMessage::InvalidAttribute {
-                name: "target".to_string(),
-                reason: "only one target attribute is allowed per word".to_string(),
-                span: attribute.span,
-            });
-            return None;
-        }
-
-        let Some(value) = attribute.value.value.as_deref() else {
-            diagnostics.emit_fatal(DiagnosticMessage::InvalidAttribute {
-                name: "target".to_string(),
-                reason: "expected #[target = \"<target>\"]".to_string(),
-                span: attribute.span,
-            });
-            return None;
-        };
-        let Ok(attribute_target) = CompileTarget::try_from(value) else {
-            diagnostics.emit_fatal(DiagnosticMessage::InvalidAttribute {
-                name: "target".to_string(),
-                reason: format!("unknown target \"{value}\";"),
-                span: attribute.span,
-            });
-            return None;
+            .map(|attribute| {
+                let Some(value) = attribute.value.value.as_deref() else {
+                    return Err(DiagnosticMessage::InvalidAttribute {
+                        name: "target".to_string(),
+                        reason: "expected #[target = \"<target>\"]".to_string(),
+                        span: attribute.span,
+                    });
+                };
+                CompileTarget::try_from(value).map_err(|()| DiagnosticMessage::InvalidAttribute {
+                    name: "target".to_string(),
+                    reason: format!("unknown target \"{value}\";"),
+                    span: attribute.span,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>();
+        let targets = match targets {
+            Ok(targets) => targets,
+            Err(diagnostic) => {
+                diagnostics.emit_fatal(diagnostic);
+                return None;
+            }
         };
 
-        if attribute_target != target {
+        if !targets.is_empty() && !targets.contains(&target) {
             return None;
         }
 

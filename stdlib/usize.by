@@ -3,26 +3,18 @@ import std.intrinsics;
 module std.usize;
 
 #[target = "interpreter"]
-def from_u8(u8 -- usize) std.intrinsics.u8_to_usize end
-
 #[target = "z80-unknown-cpm"]
 def from_u8(u8 -- usize) std.intrinsics.u8_to_usize end
 
 #[target = "interpreter"]
-def from_u16(u16 -- usize) std.intrinsics.u16_to_usize end
-
 #[target = "z80-unknown-cpm"]
 def from_u16(u16 -- usize) std.intrinsics.u16_to_usize end
 
 #[target = "interpreter"]
-def low_u8(usize -- u8) std.intrinsics.usize_to_u8 end
-
 #[target = "z80-unknown-cpm"]
 def low_u8(usize -- u8) std.intrinsics.usize_to_u8 end
 
 #[target = "interpreter"]
-def low_u16(usize -- u16) std.intrinsics.usize_to_u16 end
-
 #[target = "z80-unknown-cpm"]
 def low_u16(usize -- u16) std.intrinsics.usize_to_u16 end
 
