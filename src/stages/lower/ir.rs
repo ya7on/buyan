@@ -94,5 +94,4 @@ pub enum IRInstruction {
     Eq { ty: IRType },
     Gt { ty: IRType },
     Lt { ty: IRType },
-    PutChar,
 }

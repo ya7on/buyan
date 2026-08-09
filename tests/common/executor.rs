@@ -14,7 +14,6 @@ use buyan::{
         },
         parse::{
             ast::{ASTModule, ASTProgram},
-            filter_target::FilterTargetStage,
             lexer::TokenKind,
             stage::ParseStage,
         },
@@ -75,7 +74,6 @@ impl TestExecutor {
                 files: self.inputs.clone(),
             },
         });
-        let pipeline = pipeline.stage(FilterTargetStage);
         self.ast = Some(pipeline.dump().cloned().map_err(|err| err.clone()));
         let pipeline = pipeline.stage(CollectNamesStage).stage(CollectHIRStage);
         self.hir = Some(

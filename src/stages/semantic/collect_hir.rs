@@ -45,7 +45,7 @@ impl CollectHIRStage {
                     if !module
                         .imports
                         .iter()
-                        .any(|import| import.value == DottedPath::parse("std.str"))
+                        .any(|import| import.value.name == DottedPath::parse("std.str"))
                     {
                         return Err(DiagnosticMessage::SymbolNotFound {
                             name: "std.str.Str".to_string(),
@@ -496,9 +496,9 @@ impl CollectHIRStage {
 
         let mut imports = vec![];
         for import in &module.imports {
-            let Some(import_id) = hir_ctx.lookup(&import.value) else {
+            let Some(import_id) = hir_ctx.lookup(&import.value.name) else {
                 diagnostics.emit_fatal(DiagnosticMessage::SymbolNotFound {
-                    name: import.value.to_string(),
+                    name: import.value.name.to_string(),
                     span: import.span,
                 });
                 continue;

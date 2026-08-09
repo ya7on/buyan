@@ -1,10 +1,23 @@
 import std.stack;
 import std.str;
 import std.u8;
-import std.intrinsics;
 import std.cfg;
+#[target = "interpreter"]
+import std.os.interpreter;
+#[target = "z80-unknown-cpm"]
+import std.os.cpm;
 
 module std.io;
+
+#[target = "interpreter"]
+def put_char(u8 -- )
+    std.os.interpreter.put_char
+end
+
+#[target = "z80-unknown-cpm"]
+def put_char(u8 -- )
+    std.os.cpm.c_write
+end
 
 def print(std.str.Str -- )
     0u8
@@ -18,7 +31,7 @@ def print(std.str.Str -- )
     | std.str.Str, u8 -- std.str.Str, u8 | {
         std.stack.over std.stack.over               // Str u8 Str u8
         std.str.get                                 // Str u8 u8
-        std.intrinsics.put_char                     // Str u8
+        put_char                     // Str u8
 
         1u8 std.u8.add
     }
@@ -29,6 +42,5 @@ end
 def println(std.str.Str -- )
     print
 
-    // newline
-    0x0Au8 std.intrinsics.put_char
+    "\n" print
 end

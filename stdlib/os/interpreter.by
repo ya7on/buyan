@@ -1,0 +1,5 @@
+module std.os.interpreter;
+
+#[target = "interpreter"]
+#[extern = "put_char"]
+def put_char(u8 -- ) end

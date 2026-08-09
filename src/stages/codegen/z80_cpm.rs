@@ -416,15 +416,6 @@ impl Z80CpmCodegenStage {
                         }
                         _ => todo!(),
                     },
-                    IRInstruction::PutChar => {
-                        emitter.emit(Z80::ld(
-                            Z80Register::E,
-                            Z80Operand::indexed(Z80Register::IX, 0),
-                        ));
-                        emitter.emit(Z80::inc(Z80Register::IX));
-                        emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(2)));
-                        emitter.emit(Z80::call(Z80Immediate(5)));
-                    }
                 }
             }
 

@@ -1,7 +1,7 @@
 pub mod ast;
 pub mod dump;
-pub mod filter_target;
 pub mod lexer;
+pub mod parse_attribute;
 pub mod parse_instruction;
 pub mod parse_module;
 pub mod parse_stack_effect;

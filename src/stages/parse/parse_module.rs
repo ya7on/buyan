@@ -5,7 +5,11 @@ use chumsky::{
 use crate::{
     common::{DottedPath, SourceSpan, Spanned},
     stages::parse::{
-        ast::ASTModule, lexer::TokenKind, parse_struct::struct_parser, parse_word::word_parser,
+        ast::{ASTImport, ASTModule},
+        lexer::TokenKind,
+        parse_attribute::attributes_parser,
+        parse_struct::struct_parser,
+        parse_word::word_parser,
     },
 };
 
@@ -15,17 +19,26 @@ pub fn module_parser<'src, I>()
 where
     I: ValueInput<'src, Token = TokenKind, Span = SourceSpan>,
 {
-    let import_parser = just(TokenKind::KeywordImport)
-        .ignore_then(
-            select! { TokenKind::Ident(name) => name }
-                .separated_by(just(TokenKind::Dot))
-                .at_least(1)
-                .collect::<Vec<_>>(),
+    let import_parser = attributes_parser()
+        .then(
+            just(TokenKind::KeywordImport)
+                .ignore_then(
+                    select! { TokenKind::Ident(name) => name }
+                        .separated_by(just(TokenKind::Dot))
+                        .at_least(1)
+                        .collect::<Vec<_>>(),
+                )
+                .then_ignore(just(TokenKind::Semicolon)),
         )
-        .then_ignore(just(TokenKind::Semicolon))
-        .map_with(|name, extra| {
+        .map_with(|(attributes, name), extra| {
             let span: SourceSpan = extra.span();
-            Spanned::new(DottedPath(name), span)
+            Spanned::new(
+                ASTImport {
+                    name: DottedPath(name),
+                    attributes,
+                },
+                span,
+            )
         });
 
     let module_name_parser = just(TokenKind::KeywordModule)

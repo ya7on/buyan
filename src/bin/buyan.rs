@@ -11,7 +11,7 @@ use buyan::{
         codegen::z80_cpm::Z80CpmCodegenStage,
         interpreter::executor::IRInterpreter,
         lower::{collect::CollectSymbolsStage, monomorphize::MonomorphizeStage, stage::LowerStage},
-        parse::{filter_target::FilterTargetStage, stage::ParseStage},
+        parse::stage::ParseStage,
         semantic::{collect_hir::CollectHIRStage, collect_names::CollectNamesStage},
     },
 };
@@ -118,7 +118,6 @@ fn main() {
     let pipeline =
         PipelineBuilder::new(args.path, CompileContext::new(args.target.compile_target()))
             .stage(ParseStage::<RealFileSystem>::default())
-            .stage(FilterTargetStage)
             // .stage(DumpAst)
             .stage(CollectNamesStage)
             .stage(CollectHIRStage)

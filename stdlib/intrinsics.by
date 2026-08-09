@@ -37,9 +37,6 @@ def over<A, B>(A, B -- A, B, A) end
 def call<...S, ...R>(...S, |...S -- ...R| -- ...R) end
 
 #[builtin]
-def put_char(u8 -- ) end
-
-#[builtin]
 def u8_to_u16(u8 -- u16) end
 
 #[builtin]

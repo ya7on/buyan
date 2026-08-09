@@ -107,11 +107,25 @@ impl IRInterpreter {
                 IRInstruction::CallDirect { word_id } => {
                     self.execute_word(program, *word_id)?;
                 }
-                IRInstruction::CallExtern { symbol: _ } => {
-                    return Err(DiagnosticMessage::RuntimeError(
-                        "cannot execute an external word in interpreter",
-                    ));
-                }
+                IRInstruction::CallExtern { symbol } => match symbol.as_str() {
+                    "put_char" => {
+                        let value = self
+                            .stack
+                            .pop()
+                            .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                        let IRValue::U8(value) = value else {
+                            panic!("put char expects u8");
+                        };
+                        std::io::stdout().write_all(&[value]).map_err(|_| {
+                            DiagnosticMessage::RuntimeError("failed to write output")
+                        })?;
+                    }
+                    _ => {
+                        return Err(DiagnosticMessage::RuntimeError(
+                            "cannot execute an external word in interpreter",
+                        ));
+                    }
+                },
                 IRInstruction::CallIndirect => {
                     let lambda = self
                         .stack
@@ -399,18 +413,6 @@ impl IRInterpreter {
                         }
                         _ => panic!("lt expects u8 operands"),
                     }
-                }
-                IRInstruction::PutChar => {
-                    let value = self
-                        .stack
-                        .pop()
-                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
-                    let IRValue::U8(value) = value else {
-                        panic!("put char expects u8");
-                    };
-                    std::io::stdout()
-                        .write_all(&[value])
-                        .map_err(|_| DiagnosticMessage::RuntimeError("failed to write output"))?;
                 }
             }
 

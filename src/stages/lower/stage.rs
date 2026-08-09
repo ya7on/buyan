@@ -318,9 +318,6 @@ impl LowerStage {
 
                             basicblock = BasicBlockBuilder::default();
                         }
-                        "std.intrinsics.put_char" => {
-                            basicblock.push(Spanned::new(IRInstruction::PutChar, instruction.span));
-                        }
                         "std.intrinsics.u8_to_u16" => {
                             basicblock.push(Spanned::new(
                                 IRInstruction::Cast {

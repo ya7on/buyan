@@ -8,9 +8,15 @@ pub struct ASTProgram {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ASTModule {
     pub name: Spanned<DottedPath>,
-    pub imports: Vec<Spanned<DottedPath>>,
+    pub imports: Vec<Spanned<ASTImport>>,
     pub structs: Vec<Spanned<ASTStruct>>,
     pub words: Vec<Spanned<ASTWord>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ASTImport {
+    pub name: DottedPath,
+    pub attributes: Vec<Spanned<ASTAttribute>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -31,11 +37,11 @@ pub struct ASTWord {
     pub body: Vec<Spanned<ASTInstruction>>,
     pub word_vars: Vec<ASTWordVar>,
     pub stack_effect: Spanned<ASTStackEffect>,
-    pub attributes: Vec<Spanned<ASTWordAttribute>>,
+    pub attributes: Vec<Spanned<ASTAttribute>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ASTWordAttribute {
+pub struct ASTAttribute {
     pub name: String,
     pub value: Option<String>,
 }
