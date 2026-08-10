@@ -26,6 +26,7 @@ where
         let literal = select! {
             TokenKind::LiteralBool(value) => ASTInstruction::Literal(ASTLiteral::Bool(value)),
             TokenKind::LiteralString(value) => ASTInstruction::Literal(ASTLiteral::String(value)),
+            TokenKind::LiteralChar(value) => ASTInstruction::Literal(ASTLiteral::U8(value)),
             TokenKind::LiteralU8(value) => ASTInstruction::Literal(ASTLiteral::U8(value)),
             TokenKind::LiteralU16(value) => ASTInstruction::Literal(ASTLiteral::U16(value)),
             TokenKind::LiteralNumber(value) => ASTInstruction::Literal(ASTLiteral::Usize(value)),

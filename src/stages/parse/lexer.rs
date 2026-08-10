@@ -55,6 +55,7 @@ fn unescape_string_literal(raw: &str) -> String {
             't' => result.push('\t'),
             '\\' => result.push('\\'),
             '"' => result.push('"'),
+            '\'' => result.push('\''),
             other => {
                 result.push('\\');
                 result.push(other);
@@ -63,6 +64,14 @@ fn unescape_string_literal(raw: &str) -> String {
     }
 
     result
+}
+
+fn unescape_char_literal(raw: &str) -> Option<u8> {
+    let value = unescape_string_literal(raw);
+    let [value] = value.as_bytes() else {
+        return None;
+    };
+    Some(*value)
 }
 
 #[derive(Logos, Debug, PartialEq, Eq, Clone)]
@@ -86,6 +95,8 @@ pub enum TokenKind {
     LiteralNumber(u16),
     #[regex(r#""([^"\\]|\\.)*""#, |lex| unescape_string_literal(lex.slice()))]
     LiteralString(String),
+    #[regex(r#"'([^'\\]|\\.)*'"#, |lex| unescape_char_literal(lex.slice()))]
+    LiteralChar(u8),
     #[token("true", |_| true)]
     #[token("false", |_| false)]
     LiteralBool(bool),
