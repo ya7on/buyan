@@ -44,7 +44,7 @@ fn dump_stack_effect(buf: &mut String, item: &ASTStackEffect) -> Result<(), std:
 fn dump_instruction(buf: &mut String, instruction: &ASTInstruction) -> Result<(), std::fmt::Error> {
     match &instruction {
         ASTInstruction::Call(name) => write!(buf, "{name}")?,
-        ASTInstruction::Pack(name) => write!(buf, ">{name}")?,
+        ASTInstruction::Pack(name) => write!(buf, "{name}<")?,
         ASTInstruction::Unpack(name) => write!(buf, "{name}>")?,
         ASTInstruction::Literal(ASTLiteral::Bool(value)) => write!(buf, "{value}")?,
         ASTInstruction::Literal(ASTLiteral::String(value)) => write!(buf, "{value}")?,

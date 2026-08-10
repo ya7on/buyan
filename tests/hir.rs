@@ -68,7 +68,7 @@ fn structs() {
         struct Inner(bool);
         struct Pair(u8, bool);
         def nested(Outer -- bool) Outer.0 Inner.0 end
-        def roundtrip( -- u8, bool) 1u8 true >Pair Pair> end
+        def roundtrip( -- u8, bool) 1u8 true Pair< Pair> end
         "#,
     ))
     .check()
@@ -85,7 +85,7 @@ fn modules() {
         module app;
         struct Segment(deep.geometry.Point);
         def main( -- u8)
-            1u8 2u8 >deep.geometry.Point >Segment
+            1u8 2u8 deep.geometry.Point< Segment<
             Segment.0 deep.geometry.Point.1
         end
         "#,

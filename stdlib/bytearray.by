@@ -1,0 +1,75 @@
+import std.stack;
+import std.unsafe.mem;
+import std.usize;
+import std.ptr;
+import std.cfg;
+
+module std.bytearray;
+
+struct ByteArray(ptr, usize, usize); // ptr, length, capacity
+
+def new(usize -- ByteArray)
+    std.stack.dup
+    std.unsafe.mem.alloc
+    0
+    std.stack.rotate_left
+    ByteArray<
+end
+
+def is_full(ByteArray -- bool)
+    std.stack.dup
+    ByteArray.1
+    std.stack.swap
+    ByteArray.2
+
+    std.usize.eq
+end
+
+def push(ByteArray, u8 -- ByteArray)
+    std.stack.over
+
+    // check overflow
+    is_full
+    | ByteArray, u8 -- ByteArray | {
+        std.stack.drop
+        // TODO realloc
+    }
+    | ByteArray, u8 -- ByteArray | {
+        std.stack.over
+        ByteArray>
+        std.stack.drop
+        std.usize.low_u16 // TODO FIXME
+        std.ptr.offset
+        std.stack.swap
+        std.unsafe.mem.store
+
+        ByteArray>
+        std.stack.rotate_right
+        1 std.usize.add
+        std.stack.rotate_left
+        ByteArray<
+    }
+    std.cfg.if
+end
+
+def get(ByteArray, usize -- u8)
+    std.stack.over
+    std.stack.over
+
+    std.stack.swap
+    ByteArray.1
+    std.usize.lt
+
+    | ByteArray, usize -- u8 | {
+        std.stack.swap
+        ByteArray.0
+        std.stack.swap
+        std.usize.low_u16 // TODO FIXME
+        std.ptr.offset
+        std.unsafe.mem.load
+    }
+    | ByteArray, usize -- u8 | {
+        std.stack.drop std.stack.drop 0u8
+    }
+    std.cfg.if
+end

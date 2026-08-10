@@ -272,6 +272,40 @@ impl IRInterpreter {
                     self.stack.push(upper);
                     self.stack.push(lower);
                 }
+                IRInstruction::RotateLeft { .. } => {
+                    let upper = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let middle = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lower = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    self.stack.push(middle);
+                    self.stack.push(upper);
+                    self.stack.push(lower);
+                }
+                IRInstruction::RotateRight { .. } => {
+                    let upper = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let middle = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    let lower = self
+                        .stack
+                        .pop()
+                        .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                    self.stack.push(upper);
+                    self.stack.push(lower);
+                    self.stack.push(middle);
+                }
                 IRInstruction::Dup { .. } => {
                     let value = self
                         .stack

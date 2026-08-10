@@ -34,6 +34,12 @@ def swap<A, B>(A, B -- B, A) end
 def over<A, B>(A, B -- A, B, A) end
 
 #[builtin]
+def rotate_left<A, B, C>(A, B, C -- B, C, A) end
+
+#[builtin]
+def rotate_right<A, B, C>(A, B, C -- C, A, B) end
+
+#[builtin]
 def call<...S, ...R>(...S, |...S -- ...R| -- ...R) end
 
 #[builtin]

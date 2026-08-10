@@ -315,6 +315,72 @@ impl Z80CpmCodegenStage {
                             ));
                         }
                     }
+                    IRInstruction::RotateLeft {
+                        lower,
+                        middle,
+                        upper,
+                    } => {
+                        let lower_size = Self::type_size(lower);
+                        let middle_size = Self::type_size(middle);
+                        let upper_size = Self::type_size(upper);
+                        let total_size = lower_size + middle_size + upper_size;
+                        let segments = [
+                            (middle_size + upper_size, lower_size),
+                            (0, upper_size),
+                            (upper_size, middle_size),
+                        ];
+
+                        for (offset, size) in segments.into_iter().rev() {
+                            for byte in (0..size).rev() {
+                                emitter.emit(Z80::ld(
+                                    Z80Register::A,
+                                    Z80Operand::indexed(Z80Register::IX, (offset + byte) as isize),
+                                ));
+                                emitter.emit(Z80::push(Z80Register::AF));
+                            }
+                        }
+
+                        for byte in 0..total_size {
+                            emitter.emit(Z80::pop(Z80Register::AF));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, byte as isize),
+                                Z80Register::A,
+                            ));
+                        }
+                    }
+                    IRInstruction::RotateRight {
+                        lower,
+                        middle,
+                        upper,
+                    } => {
+                        let lower_size = Self::type_size(lower);
+                        let middle_size = Self::type_size(middle);
+                        let upper_size = Self::type_size(upper);
+                        let total_size = lower_size + middle_size + upper_size;
+                        let segments = [
+                            (upper_size, middle_size),
+                            (middle_size + upper_size, lower_size),
+                            (0, upper_size),
+                        ];
+
+                        for (offset, size) in segments.into_iter().rev() {
+                            for byte in (0..size).rev() {
+                                emitter.emit(Z80::ld(
+                                    Z80Register::A,
+                                    Z80Operand::indexed(Z80Register::IX, (offset + byte) as isize),
+                                ));
+                                emitter.emit(Z80::push(Z80Register::AF));
+                            }
+                        }
+
+                        for byte in 0..total_size {
+                            emitter.emit(Z80::pop(Z80Register::AF));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, byte as isize),
+                                Z80Register::A,
+                            ));
+                        }
+                    }
                     IRInstruction::Add { ty } => match ty {
                         IRType::U8 => {
                             emitter.emit(Z80::ld(
@@ -395,6 +461,40 @@ impl Z80CpmCodegenStage {
                             ));
                             emitter.emit(Z80::inc(Z80Register::IX));
                         }
+                        IRType::U16 => {
+                            let not_equal_label = format!(
+                                "{}_bb{block_id}_eq_u16_{instruction_index}_not_equal",
+                                Self::word_label(word.word_id),
+                            );
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 1)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::jr(
+                                Z80Condition::Nz,
+                                Z80Label::new(not_equal_label.clone()),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 0)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::jr(
+                                Z80Condition::Nz,
+                                Z80Label::new(not_equal_label.clone()),
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::A));
+                            emitter.emit(Z80::label(Z80Label::new(not_equal_label)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(3)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
+                        }
                         _ => todo!(),
                     },
                     IRInstruction::Gt { ty: _ } => todo!(),
@@ -413,6 +513,36 @@ impl Z80CpmCodegenStage {
                                 Z80Register::A,
                             ));
                             emitter.emit(Z80::inc(Z80Register::IX));
+                        }
+                        IRType::U16 => {
+                            let compare_done_label = format!(
+                                "{}_bb{block_id}_lt_u16_{instruction_index}_compare_done",
+                                Self::word_label(word.word_id),
+                            );
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 1)));
+                            emitter.emit(Z80::jr(
+                                Z80Condition::Nz,
+                                Z80Label::new(compare_done_label.clone()),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 0)));
+                            emitter.emit(Z80::label(Z80Label::new(compare_done_label)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::sbc(Z80Register::A, Z80Register::A));
+                            emitter.emit(Z80::and(Z80Immediate(1)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(3)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                         }
                         _ => todo!(),
                     },

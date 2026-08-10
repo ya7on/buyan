@@ -72,26 +72,78 @@ impl IRType {
 
 #[derive(Debug, Clone)]
 pub enum IRInstruction {
-    PushConstant { value: IRConstant },
-    PushLambda { word_id: WordId },
-    CallDirect { word_id: WordId },
-    CallExtern { symbol: String },
+    PushConstant {
+        value: IRConstant,
+    },
+    PushLambda {
+        word_id: WordId,
+    },
+    CallDirect {
+        word_id: WordId,
+    },
+    CallExtern {
+        symbol: String,
+    },
     CallIndirect,
-    Pack { type_id: TypeId },
-    Unpack { type_id: TypeId },
-    GetField { type_id: TypeId, field_index: usize },
+    Pack {
+        type_id: TypeId,
+    },
+    Unpack {
+        type_id: TypeId,
+    },
+    GetField {
+        type_id: TypeId,
+        field_index: usize,
+    },
     Load,
     Store,
-    Cast { from: IRType, to: IRType },
-    Drop { ty: IRType },
-    Dup { ty: IRType },
-    Swap { lower: IRType, upper: IRType },
-    Over { lower: IRType, upper: IRType },
-    Add { ty: IRType },
-    Sub { ty: IRType },
-    Mul { ty: IRType },
-    Div { ty: IRType },
-    Eq { ty: IRType },
-    Gt { ty: IRType },
-    Lt { ty: IRType },
+    Cast {
+        from: IRType,
+        to: IRType,
+    },
+    Drop {
+        ty: IRType,
+    },
+    Dup {
+        ty: IRType,
+    },
+    Swap {
+        lower: IRType,
+        upper: IRType,
+    },
+    Over {
+        lower: IRType,
+        upper: IRType,
+    },
+    RotateLeft {
+        lower: IRType,
+        middle: IRType,
+        upper: IRType,
+    },
+    RotateRight {
+        lower: IRType,
+        middle: IRType,
+        upper: IRType,
+    },
+    Add {
+        ty: IRType,
+    },
+    Sub {
+        ty: IRType,
+    },
+    Mul {
+        ty: IRType,
+    },
+    Div {
+        ty: IRType,
+    },
+    Eq {
+        ty: IRType,
+    },
+    Gt {
+        ty: IRType,
+    },
+    Lt {
+        ty: IRType,
+    },
 }

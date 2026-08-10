@@ -39,8 +39,9 @@ where
         .collect::<Vec<_>>()
         .map(DottedPath);
 
-        let pack = just(TokenKind::GreaterThan)
-            .ignore_then(path.clone())
+        let pack = path
+            .clone()
+            .then_ignore(just(TokenKind::LessThan))
             .map(ASTInstruction::Pack);
 
         let unpack = path

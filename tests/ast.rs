@@ -46,7 +46,7 @@ fn structs() {
         struct Pair(u8, bool);
         def unpack(Pair -- u8, bool) Pair> end
         def field(Pair -- u8) Pair.0 end
-        def qualified( -- geometry.Point) 1u8 2u8 >geometry.Point end
+        def qualified( -- geometry.Point) 1u8 2u8 geometry.Point< end
         def path( -- ) geometry.Point.0.tail end
         "#,
     ))

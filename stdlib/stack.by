@@ -14,6 +14,12 @@ def swap<A, B>(A, B -- B, A) std.intrinsics.swap end
 // Duplicate the second element from the top of the stack.
 def over<A, B>(A, B -- A, B, A) std.intrinsics.over end
 
+// Rotate the top three elements left.
+def rotate_left<A, B, C>(A, B, C -- B, C, A) std.intrinsics.rotate_left end
+
+// Rotate the top three elements right.
+def rotate_right<A, B, C>(A, B, C -- C, A, B) std.intrinsics.rotate_right end
+
 // Call a function with the given arguments.
 def call<...S, ...R>(
     ...S,

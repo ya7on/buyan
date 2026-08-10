@@ -428,6 +428,44 @@ impl LowerStage {
                                 instruction.span,
                             ));
                         }
+                        "std.intrinsics.rotate_left" => {
+                            let (Some(lower), Some(middle), Some(upper)) =
+                                (type_args.first(), type_args.get(1), type_args.get(2))
+                            else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type arguments for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::RotateLeft {
+                                    lower: lower.clone(),
+                                    middle: middle.clone(),
+                                    upper: upper.clone(),
+                                },
+                                instruction.span,
+                            ));
+                        }
+                        "std.intrinsics.rotate_right" => {
+                            let (Some(lower), Some(middle), Some(upper)) =
+                                (type_args.first(), type_args.get(1), type_args.get(2))
+                            else {
+                                errors.push(DiagnosticMessage::CannotInferType {
+                                    label: format!("missing type arguments for '{name}'"),
+                                    span: instruction.span,
+                                });
+                                continue;
+                            };
+                            basicblock.push(Spanned::new(
+                                IRInstruction::RotateRight {
+                                    lower: lower.clone(),
+                                    middle: middle.clone(),
+                                    upper: upper.clone(),
+                                },
+                                instruction.span,
+                            ));
+                        }
                         "std.intrinsics.add" => {
                             let Some(ty) = type_args.first() else {
                                 errors.push(DiagnosticMessage::CannotInferType {
