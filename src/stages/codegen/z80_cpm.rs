@@ -468,6 +468,11 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         let mut emitter = Emitter::<Z80Assembly>::default();
         emitter.emit(Z80::org(0x100));
         emitter.emit(Z80::label(Z80Label::new("start")));
+        emitter.emit(Z80::ld(Z80Register::HL, Z80Label::new("__heap")));
+        emitter.emit(Z80::ld(
+            Z80Operand::indirect_label(Z80Label::new("__heap_ptr")),
+            Z80Register::HL,
+        ));
         emitter.emit(Z80::ld(Z80Register::IX, Z80Label::new("__data_stack_end")));
         emitter.emit(Z80::call(Self::word_label(entrypoint.word_id)));
         emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(0)));
@@ -500,6 +505,37 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         emitter.emit(Z80::inc(Z80Register::IX));
         emitter.emit(Z80::ret());
 
+        emitter.emit(Z80::label(Z80Label::new("alloc")));
+        emitter.emit(Z80::ld(
+            Z80Register::E,
+            Z80Operand::indexed(Z80Register::IX, 0),
+        ));
+        emitter.emit(Z80::ld(
+            Z80Register::D,
+            Z80Operand::indexed(Z80Register::IX, 1),
+        ));
+        emitter.emit(Z80::ld(
+            Z80Register::HL,
+            Z80Operand::indirect_label(Z80Label::new("__heap_ptr")),
+        ));
+        emitter.emit(Z80::push(Z80Register::HL));
+        emitter.emit(Z80::add(Z80Register::HL, Z80Register::DE));
+        emitter.emit(Z80::ld(
+            Z80Operand::indirect_label(Z80Label::new("__heap_ptr")),
+            Z80Register::HL,
+        ));
+        emitter.emit(Z80::pop(Z80Register::HL));
+        emitter.emit(Z80::ld(
+            Z80Operand::indexed(Z80Register::IX, 0),
+            Z80Register::L,
+        ));
+        emitter.emit(Z80::ld(
+            Z80Operand::indexed(Z80Register::IX, 1),
+            Z80Register::H,
+        ));
+
+        emitter.emit(Z80::ret());
+
         let mut diagnostics = Diagnostics::default();
         for word in &ir_program.words {
             if let Err(error) = Self::emit_word(&mut emitter, &ir_ctx, word) {
@@ -515,6 +551,9 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         emitter.emit(Z80::label(Z80Label::new("__data_stack")));
         emitter.emit(Z80::defs(256));
         emitter.emit(Z80::label(Z80Label::new("__data_stack_end")));
+        emitter.emit(Z80::label(Z80Label::new("__heap_ptr")));
+        emitter.emit(Z80::defs(2));
+        emitter.emit(Z80::label(Z80Label::new("__heap")));
 
         StageResult::new(Some(emitter.finish()), diagnostics)
     }

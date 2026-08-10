@@ -34,6 +34,7 @@ pub enum Z80Operand {
     Label(Z80Label),
     LabelOffset { label: Z80Label, offset: isize },
     Indirect(Z80Register),
+    IndirectLabel(Z80Label),
     Indexed { base: Z80Register, offset: isize },
 }
 
@@ -41,6 +42,11 @@ impl Z80Operand {
     #[must_use]
     pub const fn indirect(register: Z80Register) -> Self {
         Self::Indirect(register)
+    }
+
+    #[must_use]
+    pub fn indirect_label(label: Z80Label) -> Self {
+        Self::IndirectLabel(label)
     }
 
     #[must_use]
@@ -84,6 +90,7 @@ impl Display for Z80Operand {
             }
             Self::LabelOffset { label, offset } => write!(formatter, "{label}+{offset}"),
             Self::Indirect(register) => write!(formatter, "({register})"),
+            Self::IndirectLabel(label) => write!(formatter, "({label})"),
             Self::Indexed { base, offset } if *offset < 0 => write!(formatter, "({base}{offset})"),
             Self::Indexed { base, offset } => write!(formatter, "({base}+{offset})"),
         }
