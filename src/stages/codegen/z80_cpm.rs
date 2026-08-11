@@ -607,6 +607,12 @@ impl Z80CpmCodegenStage {
                                 Z80Register::C,
                                 Z80Operand::indexed(Z80Register::IX, 0),
                             ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::C));
+                            emitter.emit(Z80::or(Z80Register::A));
+                            emitter.emit(Z80::jp(
+                                Some(Z80Condition::Z),
+                                Z80Label::new("__panic_handler"),
+                            ));
                             emitter.emit(Z80::ld(Z80Register::D, Z80Immediate(0)));
                             emitter.emit(Z80::ld(Z80Register::B, Z80Immediate(8)));
                             emitter.emit(Z80::label(loop_label.clone()));
@@ -665,6 +671,12 @@ impl Z80CpmCodegenStage {
                             emitter.emit(Z80::ld(
                                 Z80Register::D,
                                 Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::D));
+                            emitter.emit(Z80::or(Z80Register::E));
+                            emitter.emit(Z80::jp(
+                                Some(Z80Condition::Z),
+                                Z80Label::new("__panic_handler"),
                             ));
                             emitter.emit(Z80::ld(Z80Register::HL, Z80Immediate(0)));
                             emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(16)));
@@ -918,6 +930,10 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         ));
         emitter.emit(Z80::ld(Z80Register::IX, Z80Label::new("__data_stack_end")));
         emitter.emit(Z80::call(Self::word_label(entrypoint.word_id)));
+        emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(0)));
+        emitter.emit(Z80::call(Z80Immediate(5)));
+
+        emitter.emit(Z80::label(Z80Label::new("__panic_handler")));
         emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(0)));
         emitter.emit(Z80::call(Z80Immediate(5)));
 

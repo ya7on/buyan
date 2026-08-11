@@ -5,6 +5,7 @@ pub enum Z80Condition {
     C,
     Nc,
     Nz,
+    Z,
 }
 
 impl Display for Z80Condition {
@@ -13,6 +14,7 @@ impl Display for Z80Condition {
             Self::C => "c",
             Self::Nc => "nc",
             Self::Nz => "nz",
+            Self::Z => "z",
         };
         formatter.write_str(name)
     }
