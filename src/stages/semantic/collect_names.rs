@@ -181,6 +181,20 @@ impl Stage<CompileContext> for CollectNamesStage {
             }
         };
 
+        let Some(entry_module) = input.modules.first() else {
+            unreachable!("AST program has no entry module");
+        };
+        if !entry_module
+            .words
+            .iter()
+            .any(|word| word.name.value == "main")
+        {
+            diagnostics.emit_fatal(DiagnosticMessage::SymbolNotFound {
+                name: "main".to_string(),
+                span: entry_module.name.span,
+            });
+        }
+
         for module in &input.modules {
             if let Err(err) = context.register_module(module) {
                 diagnostics.emit_fatal(err);

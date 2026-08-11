@@ -62,11 +62,9 @@ impl IRInterpreter {
         self.memory[..program.static_data.len()].copy_from_slice(&program.static_data);
         self.heap_ptr = program.static_data.len();
 
-        let word_id = program
-            .words
-            .iter()
-            .position(|word| word.entrypoint)
-            .ok_or(DiagnosticMessage::RuntimeError("word not found"))?;
+        let Some(word_id) = program.words.iter().position(|word| word.entrypoint) else {
+            unreachable!("IR program has no entrypoint");
+        };
 
         self.execute_word(program, WordId(word_id))
     }

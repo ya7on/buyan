@@ -905,7 +905,7 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         _: &mut CompileContext,
     ) -> StageResult<Self::Output> {
         let Some(entrypoint) = ir_program.words.iter().find(|word| word.entrypoint) else {
-            return StageResult::success(String::new());
+            unreachable!("IR program has no entrypoint");
         };
 
         let mut emitter = Emitter::<Z80Assembly>::default();
