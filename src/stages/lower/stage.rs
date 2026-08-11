@@ -619,7 +619,10 @@ impl LowerStage {
                     },
                     HIRLiteral::String { value, struct_id } => {
                         let Some(address) = u16::try_from(static_data.len()).ok() else {
-                            errors.push(DiagnosticMessage::DataIsTooBig {
+                            errors.push(DiagnosticMessage::DataOverflow {
+                                label:
+                                    "static data does not fit in the target's 64 KiB address space"
+                                        .to_string(),
                                 span: instruction.span,
                             });
                             continue;
@@ -628,7 +631,13 @@ impl LowerStage {
                         if bytes.len() > usize::from(u8::MAX)
                             || static_data.len() + bytes.len() + 1 > usize::from(u16::MAX) + 1
                         {
-                            errors.push(DiagnosticMessage::DataIsTooBig {
+                            let label = if bytes.len() > usize::from(u8::MAX) {
+                                "string literal cannot contain more than 255 ASCII bytes"
+                            } else {
+                                "static data does not fit in the target's 64 KiB address space"
+                            };
+                            errors.push(DiagnosticMessage::DataOverflow {
+                                label: label.to_string(),
                                 span: instruction.span,
                             });
                             continue;

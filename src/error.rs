@@ -106,7 +106,8 @@ pub enum DiagnosticMessage {
         label: String,
         span: Span,
     },
-    DataIsTooBig {
+    DataOverflow {
+        label: String,
         span: Span,
     },
     EmptyWord {
@@ -148,7 +149,7 @@ impl DiagnosticMessage {
             Self::UnusedImport { .. } => 14,
             Self::CannotInferType { .. } => 16,
             Self::NonAsciiString { .. } => 17,
-            Self::DataIsTooBig { .. } => 18,
+            Self::DataOverflow { .. } => 18,
         }
     }
 
@@ -169,7 +170,7 @@ impl DiagnosticMessage {
             | Self::InvalidStack { span, .. }
             | Self::NonAsciiString { span }
             | Self::CannotInferType { span, .. }
-            | Self::DataIsTooBig { span } => Some(*span),
+            | Self::DataOverflow { span, .. } => Some(*span),
             Self::Unknown { .. } | Self::RuntimeError(_) | Self::FileNotFound { .. } => None,
         }
     }
@@ -212,7 +213,7 @@ impl DiagnosticMessage {
             Self::InvalidStack { .. } => "Invalid Stack",
             Self::NonAsciiString { .. } => "Invalid String Literal",
             Self::CannotInferType { .. } => "Cannot Infer Type",
-            Self::DataIsTooBig { .. } => "Data Is Too Big",
+            Self::DataOverflow { .. } => "Data Overflow",
             Self::EmptyWord { .. } => "Empty Word",
             Self::UnusedImport { .. } => "Unused Import",
         }
@@ -264,10 +265,9 @@ impl DiagnosticMessage {
                 expected_stack.join(", "),
                 actual_stack.join(", ")
             ),
-            Self::Unknown { label } | Self::CannotInferType { label, .. } => label.clone(),
-            Self::DataIsTooBig { .. } => {
-                "data does not fit in the available static memory".to_string()
-            }
+            Self::Unknown { label }
+            | Self::CannotInferType { label, .. }
+            | Self::DataOverflow { label, .. } => label.clone(),
             Self::NonAsciiString { .. } => {
                 "string literals must contain only ASCII characters".to_string()
             }

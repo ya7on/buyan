@@ -36,6 +36,7 @@ impl IRValue {
 pub struct IRInterpreter {
     stack: Vec<IRValue>,
     memory: Vec<u8>,
+    heap_ptr: usize,
 }
 
 impl Default for IRInterpreter {
@@ -43,6 +44,7 @@ impl Default for IRInterpreter {
         Self {
             stack: Vec::new(),
             memory: vec![0; usize::from(u16::MAX) + 1],
+            heap_ptr: 0,
         }
     }
 }
@@ -58,6 +60,7 @@ impl IRInterpreter {
         self.stack.clear();
         self.memory.fill(0);
         self.memory[..program.static_data.len()].copy_from_slice(&program.static_data);
+        self.heap_ptr = program.static_data.len();
 
         let word_id = program
             .words
@@ -126,6 +129,25 @@ impl IRInterpreter {
                             .read_exact(&mut value)
                             .map_err(|_| DiagnosticMessage::RuntimeError("failed to read input"))?;
                         self.stack.push(IRValue::U8(value[0]));
+                    }
+                    "alloc" => {
+                        let size = self
+                            .stack
+                            .pop()
+                            .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
+                        let IRValue::U16(size) = size else {
+                            return Err(DiagnosticMessage::RuntimeError("alloc expects usize"));
+                        };
+                        let address = u16::try_from(self.heap_ptr)
+                            .ok()
+                            .filter(|_| {
+                                self.heap_ptr
+                                    .checked_add(usize::from(size))
+                                    .is_some_and(|end| end <= self.memory.len())
+                            })
+                            .ok_or(DiagnosticMessage::RuntimeError("out of memory"))?;
+                        self.heap_ptr += usize::from(size);
+                        self.stack.push(IRValue::U16(address));
                     }
                     _ => {
                         return Err(DiagnosticMessage::RuntimeError(

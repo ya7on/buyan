@@ -6,6 +6,7 @@ def load(ptr -- u8) std.intrinsics.load end
 
 def store(ptr, u8 -- ) std.intrinsics.store end
 
+#[target = "interpreter"]
 #[target = "z80-unknown-cpm"]
 #[extern = "alloc"]
 def alloc(usize -- ptr) end

@@ -53,7 +53,9 @@ impl CollectHIRStage {
                         });
                     }
                     if value.len() > usize::from(u8::MAX) {
-                        return Err(DiagnosticMessage::DataIsTooBig {
+                        return Err(DiagnosticMessage::DataOverflow {
+                            label: "string literal cannot contain more than 255 ASCII bytes"
+                                .to_string(),
                             span: instruction.span,
                         });
                     }

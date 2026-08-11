@@ -244,7 +244,8 @@ A struct field access uses an index outside the struct's field range. Field inde
 ```buyan
 module app;
 
-struct Pair(u8, string);
+struct Pair(u8, u16);
+
 def first(Pair -- u8) Pair.2 end
 ```
 
@@ -255,7 +256,8 @@ Use an index that exists on the struct.
 ```buyan
 module app;
 
-struct Pair(u8, string);
+struct Pair(u8, u16);
+
 def first(Pair -- u8) Pair.0 end
 ```
 
@@ -269,6 +271,7 @@ The current stack does not match the inputs required by an instruction or the ou
 
 ```buyan
 import std.u8;
+import std.str;
 
 module app;
 
@@ -342,25 +345,20 @@ def main( -- u8) 1u8 end
 Remove the import or use a symbol from the imported module.
 
 ```buyan
-import std.io;
-
 module app;
 
-def main( -- )
-    "Hello!"
-    std.io.println
-end
+def main( -- u8) 1u8 end
 ```
 
 ## B0015
 
 **Runtime Error**
 
-The interpreter encountered an invalid runtime condition, such as reading an invalid string from virtual memory.
+The interpreter encountered an invalid runtime condition.
 
 **How to fix**
 
-Check the stack effects and unsafe-memory accesses that lead to the failing operation.
+Read the diagnostic message for the exact cause.
 
 ## B0016
 
@@ -403,16 +401,50 @@ end
 
 String literals may contain only ASCII characters.
 
+**Example**
+
+```buyan
+import std.str;
+
+module app;
+
+def main( -- std.str.Str)
+    "Привет"
+end
+```
+
 **How to fix**
 
 Replace non-ASCII characters with an ASCII representation.
 
+```buyan
+import std.str;
+
+module app;
+
+def main( -- std.str.Str)
+    "Hello"
+end
+```
+
 ## B0018
 
-**Data Is Too Big**
+**Data Overflow**
 
-A string literal or the accumulated static data does not fit in the interpreter's 64 KiB virtual memory image.
+The data is too large.
+
+**Example**
+
+```buyan
+import std.str;
+
+module app;
+
+def main( -- std.str.Str)
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+end
+```
 
 **How to fix**
 
-Use a shorter literal or reduce the amount of static data in the program.
+Reduce or split the data that exceeded the limit.
