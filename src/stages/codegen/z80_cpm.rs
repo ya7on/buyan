@@ -101,7 +101,21 @@ impl Z80CpmCodegenStage {
                             ));
                         }
                     },
-                    IRInstruction::PushLambda { word_id: _ } => todo!(),
+                    IRInstruction::PushLambda { word_id } => {
+                        emitter.emit(Z80::ld(Z80Register::HL, Self::word_label(*word_id)));
+                        emitter.emit(Z80::ld(Z80Register::A, Z80Register::H));
+                        emitter.emit(Z80::dec(Z80Register::IX));
+                        emitter.emit(Z80::ld(
+                            Z80Operand::indexed(Z80Register::IX, 0),
+                            Z80Register::A,
+                        ));
+                        emitter.emit(Z80::ld(Z80Register::A, Z80Register::L));
+                        emitter.emit(Z80::dec(Z80Register::IX));
+                        emitter.emit(Z80::ld(
+                            Z80Operand::indexed(Z80Register::IX, 0),
+                            Z80Register::A,
+                        ));
+                    }
                     IRInstruction::CallDirect { word_id } => {
                         emitter.emit(Z80::call(Self::word_label(*word_id)));
                     }
@@ -118,7 +132,19 @@ impl Z80CpmCodegenStage {
                         }
                         emitter.emit(Z80::call(Z80Label::new(symbol.clone())));
                     }
-                    IRInstruction::CallIndirect => todo!(),
+                    IRInstruction::CallIndirect => {
+                        emitter.emit(Z80::ld(
+                            Z80Register::L,
+                            Z80Operand::indexed(Z80Register::IX, 0),
+                        ));
+                        emitter.emit(Z80::ld(
+                            Z80Register::H,
+                            Z80Operand::indexed(Z80Register::IX, 1),
+                        ));
+                        emitter.emit(Z80::inc(Z80Register::IX));
+                        emitter.emit(Z80::inc(Z80Register::IX));
+                        emitter.emit(Z80::call(Z80Label::new("__call_hl")));
+                    }
                     IRInstruction::Pack { type_id: _ } | IRInstruction::Unpack { type_id: _ } => {}
                     IRInstruction::GetField {
                         type_id,
@@ -607,6 +633,9 @@ impl Stage<CompileContext> for Z80CpmCodegenStage {
         emitter.emit(Z80::call(Self::word_label(entrypoint.word_id)));
         emitter.emit(Z80::ld(Z80Register::C, Z80Immediate(0)));
         emitter.emit(Z80::call(Z80Immediate(5)));
+
+        emitter.emit(Z80::label(Z80Label::new("__call_hl")));
+        emitter.emit(Z80::jp(None, Z80Operand::indirect(Z80Register::HL)));
 
         emitter.emit(Z80::label(Z80Label::new("bdos_call")));
         emitter.emit(Z80::ld(
