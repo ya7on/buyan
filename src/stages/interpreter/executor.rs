@@ -117,7 +117,7 @@ impl IRInterpreter {
                             .pop()
                             .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                         let IRValue::U8(value) = value else {
-                            panic!("put char expects u8");
+                            unreachable!("invalid IR type for interpreter");
                         };
                         std::io::stdout().write_all(&[value]).map_err(|_| {
                             DiagnosticMessage::RuntimeError("failed to write output")
@@ -136,7 +136,7 @@ impl IRInterpreter {
                             .pop()
                             .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                         let IRValue::U16(size) = size else {
-                            return Err(DiagnosticMessage::RuntimeError("alloc expects usize"));
+                            unreachable!("invalid IR type for interpreter");
                         };
                         let address = u16::try_from(self.heap_ptr)
                             .ok()
@@ -162,16 +162,12 @@ impl IRInterpreter {
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match lambda {
                         IRValue::Lambda(word_id) => self.execute_word(program, word_id)?,
-                        _ => {
-                            return Err(DiagnosticMessage::RuntimeError(
-                                "indirect call expects lambda",
-                            ));
-                        }
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Pack { type_id } => {
                     let Some(IRType::Struct { fields }) = program.types.get(type_id.id()) else {
-                        return Err(DiagnosticMessage::RuntimeError("pack expects struct type"));
+                        unreachable!("invalid IR type for interpreter");
                     };
                     let start = self
                         .stack
@@ -194,9 +190,11 @@ impl IRInterpreter {
                         fields,
                     } = value
                     else {
-                        panic!("unpack expects struct");
+                        unreachable!("invalid IR type for interpreter");
                     };
-                    assert_eq!(actual_type_id, *type_id, "struct type mismatch");
+                    if actual_type_id != *type_id {
+                        unreachable!("invalid IR type for interpreter");
+                    }
                     self.stack.extend(fields);
                 }
                 IRInstruction::GetField {
@@ -212,13 +210,14 @@ impl IRInterpreter {
                         fields,
                     } = value
                     else {
-                        panic!("get field expects struct");
+                        unreachable!("invalid IR type for interpreter");
                     };
-                    assert_eq!(actual_type_id, *type_id, "struct type mismatch");
-                    let field = fields
-                        .into_iter()
-                        .nth(*field_index)
-                        .ok_or(DiagnosticMessage::RuntimeError("field index out of bounds"))?;
+                    if actual_type_id != *type_id {
+                        unreachable!("invalid IR type for interpreter");
+                    }
+                    let Some(field) = fields.into_iter().nth(*field_index) else {
+                        unreachable!("invalid IR type for interpreter");
+                    };
                     self.stack.push(field);
                 }
                 IRInstruction::Load => {
@@ -227,7 +226,7 @@ impl IRInterpreter {
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     let IRValue::U16(address) = address else {
-                        panic!("load expects ptr");
+                        unreachable!("invalid IR type for interpreter");
                     };
                     let value = *self.memory.get(usize::from(address)).ok_or(
                         DiagnosticMessage::RuntimeError("memory address out of bounds"),
@@ -244,10 +243,10 @@ impl IRInterpreter {
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     let IRValue::U8(value) = value else {
-                        panic!("store expects u8 value");
+                        unreachable!("invalid IR type for interpreter");
                     };
                     let IRValue::U16(address) = address else {
-                        panic!("store expects ptr");
+                        unreachable!("invalid IR type for interpreter");
                     };
                     let slot = self.memory.get_mut(usize::from(address)).ok_or(
                         DiagnosticMessage::RuntimeError("memory address out of bounds"),
@@ -266,7 +265,7 @@ impl IRInterpreter {
                         (IRType::U16, IRType::U8, IRValue::U16(value)) => {
                             self.stack.push(IRValue::U8(value as u8));
                         }
-                        _ => return Err(DiagnosticMessage::RuntimeError("invalid cast")),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Swap { .. } => {
@@ -357,7 +356,7 @@ impl IRInterpreter {
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::U16(lhs.wrapping_add(rhs)));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Sub { .. } => {
@@ -376,7 +375,7 @@ impl IRInterpreter {
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::U16(lhs.wrapping_sub(rhs)));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Mul { .. } => {
@@ -395,7 +394,7 @@ impl IRInterpreter {
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::U16(lhs.wrapping_mul(rhs)));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Div { .. } => {
@@ -408,13 +407,16 @@ impl IRInterpreter {
                         .pop()
                         .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
                     match (lhs, rhs) {
+                        (IRValue::U8(_), IRValue::U8(0)) | (IRValue::U16(_), IRValue::U16(0)) => {
+                            return Err(DiagnosticMessage::RuntimeError("division by zero"));
+                        }
                         (IRValue::U8(lhs), IRValue::U8(rhs)) => {
                             self.stack.push(IRValue::U8(lhs / rhs));
                         }
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::U16(lhs / rhs));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Eq { .. } => {
@@ -436,7 +438,7 @@ impl IRInterpreter {
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs == rhs));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Gt { .. } => {
@@ -455,7 +457,7 @@ impl IRInterpreter {
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs > rhs));
                         }
-                        _ => panic!("gt expects u8 operands"),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
                 IRInstruction::Lt { .. } => {
@@ -474,7 +476,7 @@ impl IRInterpreter {
                         (IRValue::U16(lhs), IRValue::U16(rhs)) => {
                             self.stack.push(IRValue::Bool(lhs < rhs));
                         }
-                        _ => panic!("lt expects u8 operands"),
+                        _ => unreachable!("invalid IR type for interpreter"),
                     }
                 }
             }
@@ -499,9 +501,7 @@ impl IRInterpreter {
                     .ok_or(DiagnosticMessage::RuntimeError("stack underflow"))?;
 
                 let IRValue::Bool(condition) = condition else {
-                    return Err(DiagnosticMessage::RuntimeError(
-                        "branch expects bool condition",
-                    ));
+                    unreachable!("invalid IR type for interpreter");
                 };
 
                 if condition {
