@@ -1,10 +1,44 @@
 import std.intrinsics;
+import std.stack;
+import std.usize;
+import std.ptr;
+import std.cfg;
 
 module std.unsafe.mem;
 
 def load(ptr -- u8) std.intrinsics.load end
 
 def store(ptr, u8 -- ) std.intrinsics.store end
+
+def copy(ptr, ptr, usize -- )
+    | ptr, ptr, usize -- ptr, ptr, usize, bool | {
+        std.stack.dup
+        0 std.usize.gt
+    }
+    | ptr, ptr, usize -- ptr, ptr, usize | {
+        std.stack.rotate_right
+        std.stack.swap
+        std.stack.dup
+        load
+        std.stack.swap
+        1u16 std.ptr.offset
+        std.stack.rotate_right
+
+        std.stack.swap
+        std.stack.dup
+        std.stack.rotate_left
+        store
+        1u16 std.ptr.offset
+
+        std.stack.rotate_left
+        1 std.usize.sub
+    }
+    std.cfg.while
+
+    std.stack.drop
+    std.stack.drop
+    std.stack.drop
+end
 
 #[target = "interpreter"]
 #[target = "z80-unknown-cpm"]

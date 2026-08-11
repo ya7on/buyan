@@ -20,6 +20,14 @@ ptr -- u8
 ptr, u8 --
 ```
 
+## copy
+
+**Signature**
+
+```buyan
+ptr, ptr, usize --
+```
+
 ## alloc
 
 **Targets**: `interpreter`, `z80-unknown-cpm`

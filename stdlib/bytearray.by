@@ -31,8 +31,38 @@ def push(ByteArray, u8 -- ByteArray)
     // check overflow
     is_full
     | ByteArray, u8 -- ByteArray | {
+        std.stack.swap
+        ByteArray>
+
+        1 std.usize.add
+
+        std.stack.dup
+        std.unsafe.mem.alloc
+        std.stack.rotate_right
+        ByteArray<
+
+        std.stack.swap
+        std.stack.over
+        std.stack.dup
+        ByteArray.0
+        std.stack.swap
+        ByteArray.1
+        std.unsafe.mem.copy
+
+        std.stack.swap
+        std.stack.over
+        ByteArray>
         std.stack.drop
-        // TODO realloc
+        std.usize.low_u16
+        std.ptr.offset
+        std.stack.swap
+        std.unsafe.mem.store
+
+        ByteArray>
+        std.stack.rotate_right
+        1 std.usize.add
+        std.stack.rotate_left
+        ByteArray<
     }
     | ByteArray, u8 -- ByteArray | {
         std.stack.over
