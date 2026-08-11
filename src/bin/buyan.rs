@@ -1,4 +1,4 @@
-use std::{io::Write, path::PathBuf};
+use std::{io::Write, path::PathBuf, process::ExitCode};
 
 use ariadne::{Color, Label, Report, ReportKind};
 use buyan::{
@@ -112,7 +112,7 @@ fn print_errors(context: &CompileContext, diagnostics: &[Diagnostic]) {
     }
 }
 
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
 
     let pipeline =
@@ -133,13 +133,15 @@ fn main() {
     print_errors(&pipeline.context, &pipeline.diagnostics.items);
 
     let diagnostic_count = pipeline.diagnostics.items.len();
-    match args.target {
+    let diagnostics = match args.target {
         Target::Interpreter => {
             let pipeline = pipeline.stage(IRInterpreter::default());
             print_errors(
                 &pipeline.context,
                 &pipeline.diagnostics.items[diagnostic_count..],
             );
+
+            pipeline.diagnostics.items
         }
         Target::Z80UnknownCpm => {
             let pipeline = pipeline.stage(Z80CpmCodegenStage);
@@ -154,6 +156,16 @@ fn main() {
                     eprintln!("failed to write assembly source: {error}");
                 }
             }
+
+            pipeline.diagnostics.items
+        }
+    };
+
+    for diagnostic in diagnostics {
+        if diagnostic.kind == DiagnosticKind::Error {
+            return ExitCode::FAILURE;
         }
     }
+
+    ExitCode::SUCCESS
 }
