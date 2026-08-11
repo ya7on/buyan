@@ -67,6 +67,7 @@ fn structs() {
         struct Outer(Inner, u8);
         struct Inner(bool);
         struct Pair(u8, bool);
+        def main( -- u8) 1u8 end
         def nested(Outer -- bool) Outer.0 Inner.0 end
         def roundtrip( -- u8, bool) 1u8 true Pair< Pair> end
         "#,
@@ -121,6 +122,7 @@ fn types() -> Result<(), String> {
         "app.by",
         r#"
         module app;
+        def main( -- u8) 1u8 end
         def first( -- u8) end
         def second(u8 -- ) end
         def third( -- u8) true end
