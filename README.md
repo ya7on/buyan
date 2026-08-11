@@ -1,26 +1,38 @@
 # Buyan
 
-Buyan is a simple Forth-like language written in Rust.
+Buyan is a small, statically typed, stack-oriented language inspired by Forth.
 
-# Hello world
+## Install
 
-[source](./examples/hello_world.by)
-
+```sh
+git clone https://github.com/ya7on/buyan.git
+cd buyan
+cargo build --release
 ```
-$ cargo run --bin buyan -- --path ./examples/hello_world.by
-Hello, world!
+
+The executable will be at `target/release/buyan`.
+
+## Run
+
+Run a program with the interpreter:
+
+```sh
+./target/release/buyan --path examples/hello_world.by
 ```
 
-# Syntax example
+Generate Z80 CP/M assembly:
 
+```sh
+./target/release/buyan --path examples/hello_world.by --target z80-unknown-cpm > hello_world.asm
 ```
-import std.io;
-import std.str;
 
-module hello_world;
+## Examples
 
-def main( -- )
-    "Hello, world!"
-    std.io.println
-end
-```
+- [Hello world](examples/hello_world.by)
+- [Condition](examples/condition.by)
+- [Loop](examples/loop.by)
+- [Struct](examples/struct.by)
+
+## Documentation
+
+See the [documentation](docs/README.md) and the [tutorial](docs/tutorial.md).
