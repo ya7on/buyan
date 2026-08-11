@@ -13,5 +13,5 @@ end
 ```
 
 ```console
-buyan --path hello_world.by
+buyan hello_world.by
 ```

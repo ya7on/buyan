@@ -6,7 +6,15 @@ You can learn more about concatenative programming languages [here](https://conc
 
 # Installation
 
-To install Buyan, clone the repository and build it using [Cargo](https://doc.rust-lang.org/cargo/):
+To install Buyan using [Cargo](https://doc.rust-lang.org/cargo/), run:
+
+```sh
+cargo install --git https://github.com/ya7on/buyan.git
+```
+
+# Building from Source
+
+To build Buyan, clone the repository and build it using [Cargo](https://doc.rust-lang.org/cargo/):
 
 ```
 git clone https://github.com/ya7on/buyan.git
@@ -21,7 +29,7 @@ After building, you can find the executable in `target/release/buyan`.
 To run a Buyan program, simply pass the file path to the `buyan` executable:
 
 ```
-./target/release/buyan --path <path>.by --target <target>
+buyan <path>.by --target <target>
 ```
 
 Where `<target>` is the target architecture to compile for.

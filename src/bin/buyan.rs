@@ -36,8 +36,8 @@ impl Target {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
     path: PathBuf,
+
     #[arg(long, value_enum, default_value_t = Target::Interpreter)]
     target: Target,
 }

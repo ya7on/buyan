@@ -28,7 +28,7 @@ The entrypoint passed to the compiler does not exist or cannot be read.
 **Example**
 
 ```console
-$ cargo run --bin buyan -- --path ./missing.by
+$ buyan ./missing.by
 ```
 
 **How to fix**
@@ -36,7 +36,7 @@ $ cargo run --bin buyan -- --path ./missing.by
 Pass the path to an existing Buyan source file.
 
 ```console
-$ cargo run --bin buyan -- --path ./examples/hello_world.by
+$ buyan ./examples/hello_world.by
 ```
 
 ## B0003

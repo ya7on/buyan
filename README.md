@@ -2,28 +2,26 @@
 
 Buyan is a small, statically typed, stack-oriented language inspired by Forth.
 
-## Install
+## Installation
+
+To install Buyan using [Cargo](https://doc.rust-lang.org/cargo/), run:
 
 ```sh
-git clone https://github.com/ya7on/buyan.git
-cd buyan
-cargo build --release
+cargo install --git https://github.com/ya7on/buyan.git
 ```
-
-The executable will be at `target/release/buyan`.
 
 ## Run
 
 Run a program with the interpreter:
 
 ```sh
-./target/release/buyan --path examples/hello_world.by
+buyan examples/hello_world.by
 ```
 
 Generate Z80 CP/M assembly:
 
 ```sh
-./target/release/buyan --path examples/hello_world.by --target z80-unknown-cpm > hello_world.asm
+buyan examples/hello_world.by --target z80-unknown-cpm > hello_world.asm
 ```
 
 ## Examples
@@ -35,4 +33,4 @@ Generate Z80 CP/M assembly:
 
 ## Documentation
 
-See the [documentation](docs/README.md) and the [tutorial](docs/tutorial.md).
+See the [documentation](https://ya7on.github.io/buyan/).
