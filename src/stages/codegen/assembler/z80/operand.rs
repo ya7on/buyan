@@ -45,7 +45,7 @@ impl Z80Operand {
     }
 
     #[must_use]
-    pub fn indirect_label(label: Z80Label) -> Self {
+    pub const fn indirect_label(label: Z80Label) -> Self {
         Self::IndirectLabel(label)
     }
 

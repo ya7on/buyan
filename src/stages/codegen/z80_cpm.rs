@@ -261,7 +261,7 @@ impl Z80CpmCodegenStage {
                                 Z80Register::A,
                             ));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
                     },
                     IRInstruction::Drop { ty } => {
                         let size = Self::type_size(ty);
@@ -458,15 +458,255 @@ impl Z80CpmCodegenStage {
                             emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(2)));
                             emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
                     },
-                    IRInstruction::Sub { ty: _ } => todo!(),
-                    IRInstruction::Mul { ty: _ } => todo!(),
-                    IRInstruction::Div { ty: _ } => todo!(),
-                    IRInstruction::Eq { ty } => match ty {
+                    IRInstruction::Sub { ty } => match ty {
                         IRType::U8 => {
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::sub(Z80Operand::indexed(Z80Register::IX, 0)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
+                        }
+                        IRType::U16 => {
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                            ));
+                            emitter.emit(Z80::sub(Z80Operand::indexed(Z80Register::IX, 0)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                            ));
+                            emitter.emit(Z80::sbc(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(2)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
+                        }
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
+                    },
+                    IRInstruction::Mul { ty } => match ty {
+                        IRType::U8 => {
+                            let loop_label = Z80Label::new(format!(
+                                "{}_bb{block_id}_mul_u8_{instruction_index}_loop",
+                                Self::word_label(word.word_id),
+                            ));
+                            let skip_add_label = Z80Label::new(format!(
+                                "{}_bb{block_id}_mul_u8_{instruction_index}_skip_add",
+                                Self::word_label(word.word_id),
+                            ));
+
+                            emitter.emit(Z80::ld(
+                                Z80Register::C,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::B,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::ld(Z80Register::D, Z80Immediate(8)));
+                            emitter.emit(Z80::label(loop_label.clone()));
+                            emitter.emit(Z80::srl(Z80Register::B));
+                            emitter.emit(Z80::jr(Z80Condition::Nc, skip_add_label.clone()));
+                            emitter.emit(Z80::add(Z80Register::A, Z80Register::C));
+                            emitter.emit(Z80::label(skip_add_label));
+                            emitter.emit(Z80::sla(Z80Register::C));
+                            emitter.emit(Z80::dec(Z80Register::D));
+                            emitter.emit(Z80::jr(Z80Condition::Nz, loop_label));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
+                        }
+                        IRType::U16 => {
+                            let loop_label = Z80Label::new(format!(
+                                "{}_bb{block_id}_mul_u16_{instruction_index}_loop",
+                                Self::word_label(word.word_id),
+                            ));
+                            let skip_add_label = Z80Label::new(format!(
+                                "{}_bb{block_id}_mul_u16_{instruction_index}_skip_add",
+                                Self::word_label(word.word_id),
+                            ));
+
+                            emitter.emit(Z80::ld(
+                                Z80Register::C,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::B,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::E,
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::D,
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::HL, Z80Immediate(0)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(16)));
+                            emitter.emit(Z80::label(loop_label.clone()));
+                            emitter.emit(Z80::srl(Z80Register::B));
+                            emitter.emit(Z80::rr(Z80Register::C));
+                            emitter.emit(Z80::jr(Z80Condition::Nc, skip_add_label.clone()));
+                            emitter.emit(Z80::add(Z80Register::HL, Z80Register::DE));
+                            emitter.emit(Z80::label(skip_add_label));
+                            emitter.emit(Z80::sla(Z80Register::E));
+                            emitter.emit(Z80::rl(Z80Register::D));
+                            emitter.emit(Z80::dec(Z80Register::A));
+                            emitter.emit(Z80::jr(Z80Condition::Nz, loop_label));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                                Z80Register::L,
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::H,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::BC, Z80Immediate(2)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::BC));
+                        }
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
+                    },
+                    IRInstruction::Div { ty } => match ty {
+                        IRType::U8 => {
+                            let label = |suffix| {
+                                Z80Label::new(format!(
+                                    "{}_bb{block_id}_div_u8_{instruction_index}_{suffix}",
+                                    Self::word_label(word.word_id),
+                                ))
+                            };
+                            let loop_label = label("loop");
+                            let overflow_label = label("overflow");
+                            let store_subtraction_label = label("store_subtraction");
+                            let next_iteration_label = label("next_iteration");
+
+                            emitter.emit(Z80::ld(
+                                Z80Register::E,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::C,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::D, Z80Immediate(0)));
+                            emitter.emit(Z80::ld(Z80Register::B, Z80Immediate(8)));
+                            emitter.emit(Z80::label(loop_label.clone()));
+                            emitter.emit(Z80::sla(Z80Register::E));
+                            emitter.emit(Z80::rl(Z80Register::D));
+                            emitter.emit(Z80::jr(Z80Condition::C, overflow_label.clone()));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::D));
+                            emitter.emit(Z80::sub(Z80Register::C));
+                            emitter.emit(Z80::jr(Z80Condition::C, next_iteration_label.clone()));
+                            emitter.emit(Z80::label(store_subtraction_label.clone()));
+                            emitter.emit(Z80::ld(Z80Register::D, Z80Register::A));
+                            emitter.emit(Z80::inc(Z80Register::E));
+                            emitter.emit(Z80::label(next_iteration_label));
+                            emitter.emit(Z80::dec(Z80Register::B));
+                            emitter.emit(Z80::jr(Z80Condition::Nz, loop_label));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Register::E,
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
+
+                            let done_label = label("done");
+                            emitter.emit(Z80::jp(None, done_label.clone()));
+                            emitter.emit(Z80::label(overflow_label));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Register::D));
+                            emitter.emit(Z80::sub(Z80Register::C));
+                            emitter.emit(Z80::jp(None, store_subtraction_label));
+                            emitter.emit(Z80::label(done_label));
+                        }
+                        IRType::U16 => {
+                            let label = |suffix| {
+                                Z80Label::new(format!(
+                                    "{}_bb{block_id}_div_u16_{instruction_index}_{suffix}",
+                                    Self::word_label(word.word_id),
+                                ))
+                            };
+                            let loop_label = label("loop");
+                            let overflow_label = label("overflow");
+                            let set_quotient_bit_label = label("set_quotient_bit");
+                            let restore_remainder_label = label("restore_remainder");
+                            let next_iteration_label = label("next_iteration");
+                            let done_label = label("done");
+
+                            emitter.emit(Z80::ld(
+                                Z80Register::C,
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::B,
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::E,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::D,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::HL, Z80Immediate(0)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(16)));
+                            emitter.emit(Z80::label(loop_label.clone()));
+                            emitter.emit(Z80::sla(Z80Register::C));
+                            emitter.emit(Z80::rl(Z80Register::B));
+                            emitter.emit(Z80::adc(Z80Register::HL, Z80Register::HL));
+                            emitter.emit(Z80::jr(Z80Condition::C, overflow_label.clone()));
+                            emitter.emit(Z80::or(Z80Register::A));
+                            emitter.emit(Z80::sbc(Z80Register::HL, Z80Register::DE));
+                            emitter.emit(Z80::jr(Z80Condition::C, restore_remainder_label.clone()));
+                            emitter.emit(Z80::label(set_quotient_bit_label.clone()));
+                            emitter.emit(Z80::inc(Z80Register::C));
+                            emitter.emit(Z80::label(next_iteration_label.clone()));
+                            emitter.emit(Z80::dec(Z80Register::A));
+                            emitter.emit(Z80::jr(Z80Condition::Nz, loop_label));
+                            emitter.emit(Z80::jp(None, done_label.clone()));
+                            emitter.emit(Z80::label(overflow_label));
+                            emitter.emit(Z80::or(Z80Register::A));
+                            emitter.emit(Z80::sbc(Z80Register::HL, Z80Register::DE));
+                            emitter.emit(Z80::jp(None, set_quotient_bit_label));
+                            emitter.emit(Z80::label(restore_remainder_label));
+                            emitter.emit(Z80::add(Z80Register::HL, Z80Register::DE));
+                            emitter.emit(Z80::jp(None, next_iteration_label));
+                            emitter.emit(Z80::label(done_label));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 2),
+                                Z80Register::C,
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::B,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(2)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
+                        }
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
+                    },
+                    IRInstruction::Eq { ty } => match ty {
+                        IRType::U8 | IRType::Bool => {
                             let not_equal_label = format!(
-                                "{}_bb{block_id}_eq_u8_{instruction_index}_not_equal",
+                                "{}_bb{block_id}_eq_byte_{instruction_index}_not_equal",
                                 Self::word_label(word.word_id),
                             );
                             emitter.emit(Z80::ld(
@@ -521,9 +761,56 @@ impl Z80CpmCodegenStage {
                             emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(3)));
                             emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
                     },
-                    IRInstruction::Gt { ty: _ } => todo!(),
+                    IRInstruction::Gt { ty } => match ty {
+                        IRType::U8 => {
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::sub(Z80Operand::indexed(Z80Register::IX, 1)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::sbc(Z80Register::A, Z80Register::A));
+                            emitter.emit(Z80::and(Z80Immediate(1)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::inc(Z80Register::IX));
+                        }
+                        IRType::U16 => {
+                            let compare_done_label = format!(
+                                "{}_bb{block_id}_gt_u16_{instruction_index}_compare_done",
+                                Self::word_label(word.word_id),
+                            );
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 1),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 3)));
+                            emitter.emit(Z80::jr(
+                                Z80Condition::Nz,
+                                Z80Label::new(compare_done_label.clone()),
+                            ));
+                            emitter.emit(Z80::ld(
+                                Z80Register::A,
+                                Z80Operand::indexed(Z80Register::IX, 0),
+                            ));
+                            emitter.emit(Z80::cp(Z80Operand::indexed(Z80Register::IX, 2)));
+                            emitter.emit(Z80::label(Z80Label::new(compare_done_label)));
+                            emitter.emit(Z80::ld(Z80Register::A, Z80Immediate(0)));
+                            emitter.emit(Z80::sbc(Z80Register::A, Z80Register::A));
+                            emitter.emit(Z80::and(Z80Immediate(1)));
+                            emitter.emit(Z80::ld(
+                                Z80Operand::indexed(Z80Register::IX, 3),
+                                Z80Register::A,
+                            ));
+                            emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(3)));
+                            emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
+                        }
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
+                    },
                     IRInstruction::Lt { ty } => match ty {
                         IRType::U8 => {
                             emitter.emit(Z80::ld(
@@ -570,7 +857,7 @@ impl Z80CpmCodegenStage {
                             emitter.emit(Z80::ld(Z80Register::DE, Z80Immediate(3)));
                             emitter.emit(Z80::add(Z80Register::IX, Z80Register::DE));
                         }
-                        _ => todo!(),
+                        _ => unreachable!("invalid IR type for z80-unknown-cpm"),
                     },
                 }
             }

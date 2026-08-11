@@ -51,12 +51,32 @@ impl Z80 {
         Self::instruction("add", [destination.into(), source.into()])
     }
 
+    pub fn adc(destination: impl Into<Z80Operand>, source: impl Into<Z80Operand>) -> Z80Assembly {
+        Self::instruction("adc", [destination.into(), source.into()])
+    }
+
     pub fn sub(operand: impl Into<Z80Operand>) -> Z80Assembly {
         Self::instruction("sub", [operand.into()])
     }
 
     pub fn sbc(destination: impl Into<Z80Operand>, source: impl Into<Z80Operand>) -> Z80Assembly {
         Self::instruction("sbc", [destination.into(), source.into()])
+    }
+
+    pub fn sla(operand: impl Into<Z80Operand>) -> Z80Assembly {
+        Self::instruction("sla", [operand.into()])
+    }
+
+    pub fn srl(operand: impl Into<Z80Operand>) -> Z80Assembly {
+        Self::instruction("srl", [operand.into()])
+    }
+
+    pub fn rl(operand: impl Into<Z80Operand>) -> Z80Assembly {
+        Self::instruction("rl", [operand.into()])
+    }
+
+    pub fn rr(operand: impl Into<Z80Operand>) -> Z80Assembly {
+        Self::instruction("rr", [operand.into()])
     }
 
     pub fn and(operand: impl Into<Z80Operand>) -> Z80Assembly {
